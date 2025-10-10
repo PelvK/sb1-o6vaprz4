@@ -36,6 +36,10 @@ export const AdminPage = () => {
     user_id: "",
   });
   const [saving, setSaving] = useState(false);
+  const [teamSearchTerm, setTeamSearchTerm] = useState("");
+  const [teamCategoryFilter, setTeamCategoryFilter] = useState<Category | "">("");
+  const [planillaTeamSearch, setPlanillaTeamSearch] = useState("");
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 
   const categoryOptions = Object.values(Category).filter(
     (value) => typeof value === "number"
@@ -198,15 +202,61 @@ export const AdminPage = () => {
             </form>
           )}
 
-          <div className="teams-grid">
-            {teams.map((team) => (
-              <div key={team.id} className="team-card">
-                <span className="team-name">
-                  {team.nombre + (team.category ? ` (${team.category})` : "")}
-                </span>
-              </div>
-            ))}
+          <div className="team-filters">
+            <FormInput
+              type="text"
+              placeholder="Buscar equipo..."
+              value={teamSearchTerm}
+              onChange={(e) => setTeamSearchTerm(e.target.value)}
+            />
+            <select
+              className="filter-select"
+              value={teamCategoryFilter}
+              onChange={(e) =>
+                setTeamCategoryFilter(
+                  e.target.value === "" ? "" : (Number(e.target.value) as Category)
+                )
+              }
+            >
+              <option value="">Todas las categorías</option>
+              {categoryOptions.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
           </div>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHeadCell>Nombre del Equipo</TableHeadCell>
+                <TableHeadCell>Categoría</TableHeadCell>
+                <TableHeadCell>Fecha de Creación</TableHeadCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {teams
+                .filter((team) => {
+                  const matchesSearch = team.nombre
+                    .toLowerCase()
+                    .includes(teamSearchTerm.toLowerCase());
+                  const matchesCategory =
+                    teamCategoryFilter === "" ||
+                    team.category === Number(teamCategoryFilter);
+                  return matchesSearch && matchesCategory;
+                })
+                .map((team) => (
+                  <TableRow key={team.id}>
+                    <TableCell>{team.nombre}</TableCell>
+                    <TableCell>Categoría {team.category}</TableCell>
+                    <TableCell>
+                      {new Date(team.created_at).toLocaleDateString("es-ES")}
+                    </TableCell>
+                  </TableRow>
+                ))}
+            </TableBody>
+          </Table>
         </div>
 
         <div className="admin-section">
@@ -222,53 +272,81 @@ export const AdminPage = () => {
           </div>
 
           {showNewPlanillaForm && (
-            <form onSubmit={handleCreatePlanilla} className="admin-form">
-              <select
-                className="filter-select"
-                value={newPlanilla.team_id}
-                onChange={(e) =>
-                  setNewPlanilla({ ...newPlanilla, team_id: e.target.value })
-                }
-                required
-              >
-                <option value="">Selecciona un equipo</option>
-                {teams.map((team) => (
-                  <option key={team.id} value={team.id}>
-                    {team.nombre + (team.category ? ` (${team.category})` : "")}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                className="filter-select"
-                value={newPlanilla.user_id}
-                onChange={(e) =>
-                  setNewPlanilla({ ...newPlanilla, user_id: e.target.value })
-                }
-                required
-              >
-                <option value="">Asignar a usuario</option>
-                {profiles.map((profile) => (
-                  <option key={profile.id} value={profile.id}>
-                    {profile.username}
-                  </option>
-                ))}
-              </select>
-
-              <div className="form-actions">
-                <Button type="submit" size="sm" disabled={saving}>
-                  Crear Planilla
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowNewPlanillaForm(false)}
+            <div className="admin-form-container">
+              <form onSubmit={handleCreatePlanilla} className="admin-form">
+                <select
+                  className="filter-select"
+                  value={newPlanilla.user_id}
+                  onChange={(e) =>
+                    setNewPlanilla({ ...newPlanilla, user_id: e.target.value })
+                  }
+                  required
                 >
-                  Cancelar
-                </Button>
+                  <option value="">Asignar a usuario</option>
+                  {profiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.username}
+                    </option>
+                  ))}
+                </select>
+
+                <div className="form-actions">
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={saving || !selectedTeamId || !newPlanilla.user_id}
+                  >
+                    Crear Planilla
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowNewPlanillaForm(false);
+                      setSelectedTeamId(null);
+                      setPlanillaTeamSearch("");
+                      setNewPlanilla({ team_id: "", user_id: "" });
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </form>
+
+              <div className="team-selector">
+                <h4 className="team-selector-title">Selecciona un equipo:</h4>
+                <FormInput
+                  type="text"
+                  placeholder="Buscar equipo..."
+                  value={planillaTeamSearch}
+                  onChange={(e) => setPlanillaTeamSearch(e.target.value)}
+                />
+                <div className="teams-list-small">
+                  {teams
+                    .filter((team) =>
+                      team.nombre.toLowerCase().includes(planillaTeamSearch.toLowerCase())
+                    )
+                    .map((team) => (
+                      <div
+                        key={team.id}
+                        className={`team-list-item-selectable ${
+                          selectedTeamId === team.id ? "selected" : ""
+                        }`}
+                        onClick={() => {
+                          setSelectedTeamId(team.id);
+                          setNewPlanilla({ ...newPlanilla, team_id: team.id });
+                        }}
+                      >
+                        <span className="team-list-name">{team.nombre}</span>
+                        <span className="team-list-category">
+                          Categoría {team.category}
+                        </span>
+                      </div>
+                    ))}
+                </div>
               </div>
-            </form>
+            </div>
           )}
 
           <Table>
