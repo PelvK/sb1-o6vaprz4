@@ -1,6 +1,6 @@
 import { ReactNode, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, X, LogOut, FileText, Users, Home } from 'lucide-react';
+import { Menu, X, LogOut, FileText, Users } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../base/Button';
 import './Layout.css';
@@ -24,7 +24,7 @@ export const Layout = ({ children }: LayoutProps) => {
   };
 
   const menuItems = [
-    { icon: Home, label: 'Dashboard', path: '/dashboard' },
+    // { icon: Home, label: 'Dashboard', path: '/dashboard' },
     { icon: FileText, label: 'Planillas', path: '/planillas' },
   ];
 

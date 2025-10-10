@@ -2,36 +2,48 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { usePlanillas } from '../hooks/usePlanillas';
-import { useTeams } from '../hooks/useTeams';
 import { Table, TableHeader, TableBody, TableRow, TableHeadCell, TableCell } from '../components/base/Table';
 import { StatusBadge } from '../components/base/StatusBadge';
 import { Button } from '../components/base/Button';
 import { FormInput } from '../components/base/FormInput';
-import { PlanillaStatus } from '../types';
-import { Plus, Filter } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { PlanillaStatus, Category } from '../types';
+import { Filter } from 'lucide-react';
 import './DashboardPage.css';
+import { Checkbox } from '../components/base/Checkbox';
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  // const { profile } = useAuth();
   const { planillas, loading } = usePlanillas();
-  const { teams } = useTeams();
   const [statusFilter, setStatusFilter] = useState<PlanillaStatus | 'all'>('all');
-  const [teamFilter, setTeamFilter] = useState<string>('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<Category | 'all'>('all');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedPlanillas, setSelectedPlanillas] = useState<string[]>([]);
+
+  const handleCheckboxChange = (planillaId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedPlanillas((prev) => [...prev, planillaId]);
+    } else {
+      setSelectedPlanillas((prev) => prev.filter((id) => id !== planillaId));
+    }
+  };
+
+  const categories = Object.values(Category).filter((value) => typeof value === "number") as number[];
+
+
 
   const filteredPlanillas = useMemo(() => {
     return planillas.filter((planilla) => {
       const matchesStatus = statusFilter === 'all' || planilla.status === statusFilter;
-      const matchesTeam = teamFilter === 'all' || planilla.team_id === teamFilter;
+      const matchesCategory =
+        categoryFilter === 'all' || planilla.team?.category === Number(categoryFilter);
       const matchesSearch =
         searchTerm === '' ||
         planilla.team?.nombre.toLowerCase().includes(searchTerm.toLowerCase());
 
-      return matchesStatus && matchesTeam && matchesSearch;
+      return matchesStatus && matchesCategory && matchesSearch;
     });
-  }, [planillas, statusFilter, teamFilter, searchTerm]);
+  }, [planillas, statusFilter, categoryFilter, searchTerm]);
 
   if (loading) {
     return (
@@ -51,12 +63,12 @@ export const DashboardPage = () => {
               Gestiona las planillas de buena fe de los equipos
             </p>
           </div>
-          {profile?.is_admin && (
+          {/* {profile?.is_admin && (
             <Button onClick={() => navigate('/admin/planillas/nueva')}>
               <Plus size={20} />
               Nueva Planilla
             </Button>
-          )}
+          )} */}
         </div>
 
         <div className="dashboard-filters">
@@ -85,13 +97,13 @@ export const DashboardPage = () => {
 
             <select
               className="filter-select"
-              value={teamFilter}
-              onChange={(e) => setTeamFilter(e.target.value)}
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value as number | 'all')}
             >
-              <option value="all">Todos los equipos</option>
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.nombre}
+              <option value="all">Todos las categorías</option>
+              {categories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
                 </option>
               ))}
             </select>
@@ -107,6 +119,7 @@ export const DashboardPage = () => {
             <TableHeader>
               <TableRow>
                 <TableHeadCell>Equipo</TableHeadCell>
+                <TableHeadCell>Categoría</TableHeadCell>
                 <TableHeadCell>Estado</TableHeadCell>
                 <TableHeadCell>Fecha de creación</TableHeadCell>
                 <TableHeadCell>Acciones</TableHeadCell>
@@ -115,7 +128,8 @@ export const DashboardPage = () => {
             <TableBody>
               {filteredPlanillas.map((planilla) => (
                 <TableRow key={planilla.id}>
-                  <TableCell>{planilla.team?.nombre || 'N/A'}</TableCell>
+                  <TableCell>{planilla.team?.nombre}</TableCell>
+                  <TableCell>{planilla.team?.category}</TableCell>
                   <TableCell>
                     <StatusBadge status={planilla.status} />
                   </TableCell>
@@ -130,6 +144,10 @@ export const DashboardPage = () => {
                     >
                       Ver detalles
                     </Button>
+                    <Checkbox
+                      checked={selectedPlanillas.includes(planilla.id)}
+                      onChange={(checked) => handleCheckboxChange(planilla.id, checked)}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

@@ -5,6 +5,7 @@ export type PersonaCharge = 'Técnico' | 'Delegado';
 export interface Team {
   id: string;
   nombre: string;
+  category: Category;
   created_at: string;
 }
 
@@ -57,3 +58,32 @@ export interface PlanillaWithDetails extends Planilla {
   personas: Persona[];
   assigned_users?: Profile[];
 }
+
+export enum Category {
+  Y2010 = 2010,
+  Y2011 = 2011,
+  Y2012 = 2012,
+  Y2013 = 2013,
+  Y2014 = 2014,
+  Y2015 = 2015,
+  Y2016 = 2016,
+  Y2017 = 2017,
+  Y2018 = 2018,
+}
+
+
+export const categoryLimits: { year: Category; limit: number }[] = [
+  { year: Category.Y2010, limit: 8 },
+  { year: Category.Y2011, limit: 14 },
+  { year: Category.Y2012, limit: 14 },
+  { year: Category.Y2013, limit: 14 },
+  { year: Category.Y2014, limit: 14 },
+  { year: Category.Y2015, limit: 14 },
+  { year: Category.Y2016, limit: 14 },
+  { year: Category.Y2017, limit: 14 },
+  { year: Category.Y2018, limit: 14 },
+  { year: 2019 as Category, limit: 14 },
+  { year: 2020 as Category, limit: 14 },
+];
+
+

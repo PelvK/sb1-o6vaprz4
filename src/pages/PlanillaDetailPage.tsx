@@ -8,8 +8,8 @@ import { Button } from '../components/base/Button';
 import { FormInput } from '../components/base/FormInput';
 import { Table, TableHeader, TableBody, TableRow, TableHeadCell, TableCell } from '../components/base/Table';
 import { supabase } from '../libs/supabase';
-import { Jugador, Persona } from '../types';
-import { ArrowLeft, Plus, Trash2, Save, Send } from 'lucide-react';
+import { categoryLimits, Jugador, Persona } from '../types';
+import { ArrowLeft, Plus, Trash2, Send } from 'lucide-react';
 import './PlanillaDetailPage.css';
 
 export const PlanillaDetailPage = () => {
@@ -17,7 +17,6 @@ export const PlanillaDetailPage = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { planilla, loading, refetch } = usePlanilla(id!);
-  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [newJugador, setNewJugador] = useState<Partial<Jugador>>({
@@ -36,6 +35,15 @@ export const PlanillaDetailPage = () => {
   });
 
   const canEdit = planilla?.status === 'Pendiente de envío' || profile?.is_admin;
+  console.log('Planilla:', planilla);
+  console.log('Category Limits:', categoryLimits);
+
+  const limit = categoryLimits.find(item => item.year == planilla?.team?.category)?.limit;
+
+
+  const handleBack = () => {
+    navigate(-1);
+  };
 
   const handleAddJugador = async () => {
     if (!planilla || !newJugador.dni || !newJugador.name || !newJugador.second_name) {
@@ -159,7 +167,7 @@ export const PlanillaDetailPage = () => {
     <Layout>
       <div className="planilla-detail-page">
         <div className="page-header">
-          <Button variant="ghost" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" onClick={() => handleBack()}>
             <ArrowLeft size={20} />
             Volver
           </Button>
@@ -167,7 +175,7 @@ export const PlanillaDetailPage = () => {
 
         <div className="planilla-header">
           <div>
-            <h2 className="planilla-title">{planilla.team?.nombre}</h2>
+            <h2 className="planilla-title">{planilla.team?.nombre} - Categoría {planilla.team?.category}</h2>
             <StatusBadge status={planilla.status} />
           </div>
           <div className="planilla-actions">
@@ -181,8 +189,9 @@ export const PlanillaDetailPage = () => {
         </div>
 
         <div className="section">
-          <div className="section-header">
-            <h3 className="section-title">Jugadores ({planilla.jugadores.length})</h3>
+          <div className="section-header-detail">
+            <h3 className="section-title">Jugadores: {planilla.jugadores.length}</h3>
+            <h3 className="section-title">Máximo de jugadores: {limit}</h3>
           </div>
 
           <Table>
@@ -244,7 +253,7 @@ export const PlanillaDetailPage = () => {
                   onChange={(e) => setNewJugador({ ...newJugador, second_name: e.target.value })}
                 />
               </div>
-              <Button onClick={handleAddJugador} size="sm">
+              <Button onClick={handleAddJugador} size="sm" disabled={planilla.jugadores.length >= (limit || Infinity)}>
                 <Plus size={18} />
                 Agregar Jugador
               </Button>
@@ -254,7 +263,7 @@ export const PlanillaDetailPage = () => {
 
         <div className="section">
           <div className="section-header">
-            <h3 className="section-title">Técnicos ({tecnicos.length})</h3>
+            <h3 className="section-title">Técnicos: {tecnicos.length}</h3>
           </div>
 
           <Table>
@@ -293,7 +302,7 @@ export const PlanillaDetailPage = () => {
 
         <div className="section">
           <div className="section-header">
-            <h3 className="section-title">Delegados ({delegados.length})</h3>
+            <h3 className="section-title">Delegados: {delegados.length}</h3>
           </div>
 
           <Table>

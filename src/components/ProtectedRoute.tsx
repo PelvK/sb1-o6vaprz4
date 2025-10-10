@@ -30,7 +30,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
   }
 
   if (requireAdmin && !profile?.is_admin) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/planillas" replace />;
   }
 
   return <>{children}</>;

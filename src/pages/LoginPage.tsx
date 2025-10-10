@@ -20,7 +20,7 @@ export const LoginPage = () => {
 
     try {
       await signIn(email, password);
-      navigate('/dashboard');
+      navigate('/planillas');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
     } finally {
@@ -32,8 +32,9 @@ export const LoginPage = () => {
     <div className="login-page">
       <div className="login-container">
         <div className="login-header">
-          <h1 className="login-title">Planillas de Buena Fe</h1>
-          <p className="login-subtitle">Ingresa a tu cuenta</p>
+          <h1 className="login-title">Planilla Virtual de Buena Fe</h1>
+          <h2 className="login-subtitle">Valesanito 2025</h2>
+          <p className="login-phrase">Ingresa a tu cuenta</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">

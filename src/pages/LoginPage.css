@@ -4,16 +4,32 @@
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%);
+  background-image: url('../assets/aerea3.jpg');
+  background-size: cover;
+  background-position: center;
   padding: 1rem;
+  background-repeat: no-repeat;
+  position: relative; /* Para que el ::before se posicione bien */
+  z-index: 0;
+  overflow: hidden;
 }
 
+.login-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #DC2626cc 0%, #991B1Bcc 100%);
+  z-index: 1;
+  pointer-events: none;
+}
 .login-container {
-  width: 100%;
-  max-width: 420px;
+  width: 80%;
+  max-width: 600px;
   background-color: #FFFFFF;
   border-radius: 0.75rem;
   padding: 2rem;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  z-index: 10;
 }
 
 .login-header {
@@ -29,6 +45,14 @@
 }
 
 .login-subtitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 1rem 0;
+}
+
+
+.login-phrase {
   font-size: 1rem;
   color: #6B7280;
   margin: 0;
@@ -38,6 +62,7 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  z-index: 10;
 }
 
 .login-error {

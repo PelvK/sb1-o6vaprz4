@@ -42,10 +42,10 @@
   gap: 1rem;
 }
 
-.section-header {
+.section-header-details {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-self: flex-start;
 }
 
 .section-title {
