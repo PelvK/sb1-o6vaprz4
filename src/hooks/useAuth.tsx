@@ -84,9 +84,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-  };
+  try {
+    await supabase.auth.signOut();
+  } catch (error) {
+    if (supabase.auth.setSession) supabase.auth.setSession(null);
+  }
+  window.location.href = "/tournaments/valesanito/management/login";
+};
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut }}>

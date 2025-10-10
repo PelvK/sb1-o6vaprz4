@@ -52,9 +52,9 @@
 }
 
 .tab-button.active {
-  color: #3B82F6;
-  border-bottom-color: #3B82F6;
-  background-color: #EFF6FF;
+  color: #DC2626;
+  border-bottom-color: #DC2626;
+  background-color: #FEF2F2;
 }
 
 .admin-section {
@@ -187,8 +187,8 @@
 }
 
 .team-list-item-selectable.selected {
-  background-color: #3B82F6;
-  border-color: #2563EB;
+  background-color: #DC2626;
+  border-color: #B91C1C;
 }
 
 .team-list-item-selectable.selected .team-list-name {
@@ -196,7 +196,7 @@
 }
 
 .team-list-item-selectable.selected .team-list-category {
-  background-color: #2563EB;
+  background-color: #B91C1C;
   color: #FFFFFF;
 }
 
@@ -226,11 +226,11 @@
 }
 
 .selected-row {
-  background-color: #EFF6FF !important;
+  background-color: #FEF2F2 !important;
 }
 
 .selected-row:hover {
-  background-color: #DBEAFE !important;
+  background-color: #FEE2E2 !important;
 }
 
 @media (min-width: 768px) {

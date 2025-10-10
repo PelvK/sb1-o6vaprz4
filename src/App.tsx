@@ -1,25 +1,19 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './hooks/useAuth';
-import { ProtectedRoute } from './components/ProtectedRoute';
-import { LoginPage } from './pages/LoginPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { PlanillaDetailPage } from './pages/PlanillaDetailPage';
-import { AdminPage } from './pages/AdminPage';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./hooks/useAuth";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { LoginPage } from "./pages/LoginPage";
+import { DashboardPage } from "./pages/DashboardPage";
+import { PlanillaDetailPage } from "./pages/PlanillaDetailPage";
+import { AdminPage } from "./pages/AdminPage";
+import { RootRedirect } from "./components/RootRedirect";
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/tournaments/valesanito/management/">
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          {/* <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          /> */}
+
           <Route
             path="/planillas"
             element={
@@ -44,7 +38,9 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="/" element={<Navigate to="/planillas" replace />} />
+
+          {/* Este es el cambio importante */}
+          <Route path="/" element={<RootRedirect />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
