@@ -9,24 +9,14 @@ import { FormInput } from '../components/base/FormInput';
 import { PlanillaStatus, Category } from '../types';
 import { Filter } from 'lucide-react';
 import './DashboardPage.css';
-import { Checkbox } from '../components/base/Checkbox';
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
-  // const { profile } = useAuth();
   const { planillas, loading } = usePlanillas();
   const [statusFilter, setStatusFilter] = useState<PlanillaStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<Category | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedPlanillas, setSelectedPlanillas] = useState<string[]>([]);
 
-  const handleCheckboxChange = (planillaId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedPlanillas((prev) => [...prev, planillaId]);
-    } else {
-      setSelectedPlanillas((prev) => prev.filter((id) => id !== planillaId));
-    }
-  };
 
   const categories = Object.values(Category).filter((value) => typeof value === "number") as number[];
 
@@ -144,10 +134,6 @@ export const DashboardPage = () => {
                     >
                       Ver detalles
                     </Button>
-                    <Checkbox
-                      checked={selectedPlanillas.includes(planilla.id)}
-                      onChange={(checked) => handleCheckboxChange(planilla.id, checked)}
-                    />
                   </TableCell>
                 </TableRow>
               ))}

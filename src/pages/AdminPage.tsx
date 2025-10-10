@@ -29,7 +29,7 @@ export const AdminPage = () => {
   const [pdfPlanillaId, setPdfPlanillaId] = useState<string | null>(null);
   const { teams, refetch: refetchTeams } = useTeams();
   const { profiles } = useProfiles();
-  const { users, createUser, updateUser, deleteUser, refetch: refetchUsers } = useUsers();
+  const { users, createUser, updateUser, deleteUser, /* refetch: refetchUsers */ } = useUsers();
   const [showNewPlanillaForm, setShowNewPlanillaForm] = useState(false);
   const [showNewTeamForm, setShowNewTeamForm] = useState(false);
   const [showNewUserForm, setShowNewUserForm] = useState(false);
@@ -38,7 +38,7 @@ export const AdminPage = () => {
   const [categoryFilter, setCategoryFilter] = useState<Category | "">("");
   const [newPlanilla, setNewPlanilla] = useState({
     team_id: "",
-    user_id: "",
+    user_ids: [] as string[],
   });
   const [newUser, setNewUser] = useState({
     email: "",
@@ -55,6 +55,8 @@ export const AdminPage = () => {
   const [teamCategoryFilter, setTeamCategoryFilter] = useState<Category | "">("");
   const [planillaTeamSearch, setPlanillaTeamSearch] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [planillaUserSearch, setPlanillaUserSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<'equipos' | 'planillas' | 'usuarios'>('planillas');
 
   const categoryOptions = Object.values(Category).filter(
     (value) => typeof value === "number"
@@ -91,8 +93,8 @@ export const AdminPage = () => {
 
   const handleCreatePlanilla = async (e: FormEvent) => {
     e.preventDefault();
-    if (!newPlanilla.team_id || !newPlanilla.user_id) {
-      alert("Por favor selecciona un equipo y un usuario");
+    if (!newPlanilla.team_id || newPlanilla.user_ids.length === 0) {
+      alert("Por favor selecciona un equipo y al menos un usuario");
       return;
     }
 
@@ -109,19 +111,24 @@ export const AdminPage = () => {
 
       if (planillaError) throw planillaError;
 
+      const userPlanillaInserts = newPlanilla.user_ids.map(user_id => ({
+        user_id,
+        planilla_id: planillaData.id,
+      }));
+
       const { error: assignmentError } = await supabase
         .from("user_planillas")
-        .insert({
-          user_id: newPlanilla.user_id,
-          planilla_id: planillaData.id,
-        });
+        .insert(userPlanillaInserts);
 
       if (assignmentError) throw assignmentError;
 
-      setNewPlanilla({ team_id: "", user_id: "" });
+      setNewPlanilla({ team_id: "", user_ids: [] });
+      setSelectedTeamId(null);
+      setPlanillaTeamSearch("");
+      setPlanillaUserSearch("");
       setShowNewPlanillaForm(false);
       await refetchPlanillas();
-      alert("Planilla creada y asignada exitosamente");
+      alert(`Planilla creada y asignada a ${newPlanilla.user_ids.length} usuario(s) exitosamente`);
     } catch (error) {
       console.error("Error creating planilla:", error);
       alert("Error al crear planilla");
@@ -254,9 +261,31 @@ export const AdminPage = () => {
           </p>
         </div>
 
-        <div className="admin-section">
-          <div className="section-header">
-            <h3 className="section-title">Equipos ({teams.length})</h3>
+        <div className="admin-tabs">
+          <button
+            className={`tab-button ${activeTab === 'equipos' ? 'active' : ''}`}
+            onClick={() => setActiveTab('equipos')}
+          >
+            Equipos ({teams.length})
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'planillas' ? 'active' : ''}`}
+            onClick={() => setActiveTab('planillas')}
+          >
+            Planillas ({planillas.length})
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'usuarios' ? 'active' : ''}`}
+            onClick={() => setActiveTab('usuarios')}
+          >
+            Usuarios ({users.length})
+          </button>
+        </div>
+
+        {activeTab === 'equipos' && (
+          <div className="admin-section">
+            <div className="section-header">
+              <h3 className="section-title">Equipos</h3>
             <Button
               size="sm"
               onClick={() => setShowNewTeamForm(!showNewTeamForm)}
@@ -364,11 +393,13 @@ export const AdminPage = () => {
                 ))}
             </TableBody>
           </Table>
-        </div>
+          </div>
+        )}
 
-        <div className="admin-section">
-          <div className="section-header">
-            <h3 className="section-title">Planillas ({planillas.length})</h3>
+        {activeTab === 'planillas' && (
+          <div className="admin-section">
+            <div className="section-header">
+              <h3 className="section-title">Planillas</h3>
             <Button
               size="sm"
               onClick={() => setShowNewPlanillaForm(!showNewPlanillaForm)}
@@ -381,29 +412,13 @@ export const AdminPage = () => {
           {showNewPlanillaForm && (
             <div className="admin-form-container">
               <form onSubmit={handleCreatePlanilla} className="admin-form">
-                <select
-                  className="filter-select"
-                  value={newPlanilla.user_id}
-                  onChange={(e) =>
-                    setNewPlanilla({ ...newPlanilla, user_id: e.target.value })
-                  }
-                  required
-                >
-                  <option value="">Asignar a usuario</option>
-                  {profiles.map((profile) => (
-                    <option key={profile.id} value={profile.id}>
-                      {profile.username}
-                    </option>
-                  ))}
-                </select>
-
                 <div className="form-actions">
                   <Button
                     type="submit"
                     size="sm"
-                    disabled={saving || !selectedTeamId || !newPlanilla.user_id}
+                    disabled={saving || !selectedTeamId || newPlanilla.user_ids.length === 0}
                   >
-                    Crear Planilla
+                    Crear Planilla ({newPlanilla.user_ids.length} usuario{newPlanilla.user_ids.length !== 1 ? 's' : ''} seleccionado{newPlanilla.user_ids.length !== 1 ? 's' : ''})
                   </Button>
                   <Button
                     type="button"
@@ -413,7 +428,8 @@ export const AdminPage = () => {
                       setShowNewPlanillaForm(false);
                       setSelectedTeamId(null);
                       setPlanillaTeamSearch("");
-                      setNewPlanilla({ team_id: "", user_id: "" });
+                      setPlanillaUserSearch("");
+                      setNewPlanilla({ team_id: "", user_ids: [] });
                     }}
                   >
                     Cancelar
@@ -422,7 +438,7 @@ export const AdminPage = () => {
               </form>
 
               <div className="team-selector">
-                <h4 className="team-selector-title">Selecciona un equipo:</h4>
+                <h4 className="team-selector-title">1. Selecciona un equipo:</h4>
                 <FormInput
                   type="text"
                   placeholder="Buscar equipo..."
@@ -451,6 +467,70 @@ export const AdminPage = () => {
                         </span>
                       </div>
                     ))}
+                </div>
+              </div>
+
+              <div className="user-selector">
+                <h4 className="team-selector-title">2. Selecciona usuarios:</h4>
+                <FormInput
+                  type="text"
+                  placeholder="Buscar usuario..."
+                  value={planillaUserSearch}
+                  onChange={(e) => setPlanillaUserSearch(e.target.value)}
+                />
+                <div className="users-table-container">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHeadCell>Seleccionar</TableHeadCell>
+                        <TableHeadCell>Nombre de Usuario</TableHeadCell>
+                        <TableHeadCell>Email</TableHeadCell>
+                        <TableHeadCell>Admin</TableHeadCell>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {profiles
+                        .filter((profile) => {
+                          const user = users.find(u => u.id === profile.id);
+                          const searchLower = planillaUserSearch.toLowerCase();
+                          return (
+                            profile.username.toLowerCase().includes(searchLower) ||
+                            (user?.email?.toLowerCase().includes(searchLower) || false)
+                          );
+                        })
+                        .map((profile) => {
+                          const user = users.find(u => u.id === profile.id);
+                          const isSelected = newPlanilla.user_ids.includes(profile.id);
+                          return (
+                            <TableRow
+                              key={profile.id}
+                              className={isSelected ? "selected-row" : ""}
+                              onClick={() => {
+                                const userIds = isSelected
+                                  ? newPlanilla.user_ids.filter(id => id !== profile.id)
+                                  : [...newPlanilla.user_ids, profile.id];
+                                setNewPlanilla({ ...newPlanilla, user_ids: userIds });
+                              }}
+                            >
+                              <TableCell>
+                                <Checkbox
+                                  checked={isSelected}
+                                  onChange={(checked) => {
+                                    const userIds = checked
+                                      ? [...newPlanilla.user_ids, profile.id]
+                                      : newPlanilla.user_ids.filter(id => id !== profile.id);
+                                    setNewPlanilla({ ...newPlanilla, user_ids: userIds });
+                                  }}
+                                />
+                              </TableCell>
+                              <TableCell>{profile.username}</TableCell>
+                              <TableCell>{user?.email || "N/A"}</TableCell>
+                              <TableCell>{profile.is_admin ? "Sí" : "No"}</TableCell>
+                            </TableRow>
+                          );
+                        })}
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
             </div>
@@ -551,11 +631,13 @@ export const AdminPage = () => {
               ))}
             </TableBody>
           </Table>
-        </div>
+          </div>
+        )}
 
-        <div className="admin-section">
-          <div className="section-header">
-            <h3 className="section-title">Usuarios ({users.length})</h3>
+        {activeTab === 'usuarios' && (
+          <div className="admin-section">
+            <div className="section-header">
+              <h3 className="section-title">Usuarios</h3>
             <Button
               size="sm"
               onClick={() => setShowNewUserForm(!showNewUserForm)}
@@ -684,7 +766,8 @@ export const AdminPage = () => {
               ))}
             </TableBody>
           </Table>
-        </div>
+          </div>
+        )}
       </div>
     </Layout>
   );

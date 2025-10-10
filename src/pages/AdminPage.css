@@ -23,6 +23,40 @@
   margin: 0;
 }
 
+.admin-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #E5E7EB;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tab-button {
+  flex: 1;
+  min-width: fit-content;
+  padding: 1rem 1.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #6B7280;
+  background-color: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.tab-button:hover {
+  color: #374151;
+  background-color: #F9FAFB;
+}
+
+.tab-button.active {
+  color: #3B82F6;
+  border-bottom-color: #3B82F6;
+  background-color: #EFF6FF;
+}
+
 .admin-section {
   background-color: #FFFFFF;
   border-radius: 0.5rem;
@@ -172,6 +206,33 @@
   flex-wrap: wrap;
 }
 
+.user-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.users-table-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #E5E7EB;
+  border-radius: 0.375rem;
+  background-color: #FFFFFF;
+}
+
+.users-table-container table {
+  margin: 0;
+}
+
+.selected-row {
+  background-color: #EFF6FF !important;
+}
+
+.selected-row:hover {
+  background-color: #DBEAFE !important;
+}
+
 @media (min-width: 768px) {
   .teams-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -201,8 +262,13 @@
 
   .admin-form-container {
     display: grid;
-    grid-template-columns: 1fr 1.5fr;
+    grid-template-columns: 1fr;
     gap: 1.5rem;
+  }
+
+  .admin-form-container .team-selector,
+  .admin-form-container .user-selector {
+    grid-column: 1;
   }
 }
 

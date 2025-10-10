@@ -1,6 +1,6 @@
 export type PlanillaStatus = 'Pendiente de envío' | 'Pendiente de aprobación' | 'Aprobada';
 
-export type PersonaCharge = 'Técnico' | 'Delegado';
+export type PersonaCharge = 'Técnico' | 'Delegado' | 'Médico';
 
 export interface Team {
   id: string;

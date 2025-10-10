@@ -17,7 +17,6 @@ export const useAuditLog = (planillaId: string) => {
 
       if (error) throw error;
       setAuditLogs(data || []);
-      console.log(data);
     } catch (error) {
       console.error('Error fetching audit logs:', error);
       setAuditLogs([]);
