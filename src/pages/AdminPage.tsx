@@ -4,8 +4,10 @@ import { Layout } from "../components/layout/Layout";
 import { usePlanillas } from "../hooks/usePlanillas";
 import { useTeams } from "../hooks/useTeams";
 import { useProfiles } from "../hooks/useProfiles";
+import { useUsers } from "../hooks/useUsers";
 import { Button } from "../components/base/Button";
 import { FormInput } from "../components/base/FormInput";
+import { Checkbox } from "../components/base/Checkbox";
 import {
   Table,
   TableHeader,
@@ -17,7 +19,7 @@ import {
 import { StatusBadge } from "../components/base/StatusBadge";
 import { supabase } from "../libs/supabase";
 import { Category, PlanillaStatus } from "../types";
-import { Plus, CreditCard as Edit2, CheckCircle, XCircle } from "lucide-react";
+import { Plus, CreditCard as Edit2, CheckCircle, XCircle, Pencil, Trash2 } from "lucide-react";
 import "./AdminPage.css";
 import { PdfDownloader } from "../components/PdfDownloader";
 
@@ -27,13 +29,26 @@ export const AdminPage = () => {
   const [pdfPlanillaId, setPdfPlanillaId] = useState<string | null>(null);
   const { teams, refetch: refetchTeams } = useTeams();
   const { profiles } = useProfiles();
+  const { users, createUser, updateUser, deleteUser, refetch: refetchUsers } = useUsers();
   const [showNewPlanillaForm, setShowNewPlanillaForm] = useState(false);
   const [showNewTeamForm, setShowNewTeamForm] = useState(false);
+  const [showNewUserForm, setShowNewUserForm] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [newTeamName, setNewTeamName] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Category | "">("");
   const [newPlanilla, setNewPlanilla] = useState({
     team_id: "",
     user_id: "",
+  });
+  const [newUser, setNewUser] = useState({
+    email: "",
+    username: "",
+    password: "",
+    is_admin: false,
+  });
+  const [editUser, setEditUser] = useState({
+    username: "",
+    is_admin: false,
   });
   const [saving, setSaving] = useState(false);
   const [teamSearchTerm, setTeamSearchTerm] = useState("");
@@ -134,6 +149,98 @@ export const AdminPage = () => {
     } catch (error) {
       console.error("Error updating status:", error);
       alert("Error al actualizar estado");
+    }
+  };
+
+  const handleCreateUser = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!newUser.email.trim() || !newUser.username.trim() || !newUser.password.trim()) {
+      alert("Por favor completa todos los campos");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const result = await createUser(
+        newUser.email,
+        newUser.password,
+        newUser.username,
+        newUser.is_admin
+      );
+
+      if (result.success) {
+        setNewUser({ email: "", username: "", password: "", is_admin: false });
+        setShowNewUserForm(false);
+        alert("Usuario creado exitosamente");
+      } else {
+        alert(result.error || "Error al crear usuario");
+      }
+    } catch (error) {
+      console.error("Error creating user:", error);
+      alert("Error al crear usuario");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditUser = (userId: string) => {
+    const user = users.find((u) => u.id === userId);
+    if (user) {
+      setEditingUserId(userId);
+      setEditUser({
+        username: user.username,
+        is_admin: user.is_admin,
+      });
+    }
+  };
+
+  const handleUpdateUser = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!editingUserId || !editUser.username.trim()) {
+      alert("Por favor completa todos los campos");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const result = await updateUser(
+        editingUserId,
+        editUser.username,
+        editUser.is_admin
+      );
+
+      if (result.success) {
+        setEditingUserId(null);
+        setEditUser({ username: "", is_admin: false });
+        alert("Usuario actualizado exitosamente");
+      } else {
+        alert(result.error || "Error al actualizar usuario");
+      }
+    } catch (error) {
+      console.error("Error updating user:", error);
+      alert("Error al actualizar usuario");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm("¿Estás seguro de que deseas eliminar este usuario?")) return;
+
+    try {
+      setSaving(true);
+      const result = await deleteUser(userId);
+
+      if (result.success) {
+        alert("Usuario eliminado exitosamente");
+      } else {
+        alert(result.error || "Error al eliminar usuario");
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      alert("Error al eliminar usuario");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -438,6 +545,139 @@ export const AdminPage = () => {
                           onClose={() => setPdfPlanillaId(null)}
                         />
                       )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        <div className="admin-section">
+          <div className="section-header">
+            <h3 className="section-title">Usuarios ({users.length})</h3>
+            <Button
+              size="sm"
+              onClick={() => setShowNewUserForm(!showNewUserForm)}
+            >
+              <Plus size={18} />
+              Nuevo Usuario
+            </Button>
+          </div>
+
+          {showNewUserForm && (
+            <form onSubmit={handleCreateUser} className="admin-form">
+              <FormInput
+                type="email"
+                placeholder="Correo electrónico"
+                value={newUser.email}
+                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                required
+              />
+              <FormInput
+                placeholder="Nombre de usuario"
+                value={newUser.username}
+                onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                required
+              />
+              <FormInput
+                type="password"
+                placeholder="Contraseña"
+                value={newUser.password}
+                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                required
+              />
+              <Checkbox
+                label="Admin"
+                checked={newUser.is_admin}
+                onChange={(checked) => setNewUser({ ...newUser, is_admin: checked })}
+              />
+              <div className="form-actions">
+                <Button type="submit" size="sm" disabled={saving}>
+                  Crear Usuario
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowNewUserForm(false);
+                    setNewUser({ email: "", username: "", password: "", is_admin: false });
+                  }}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {editingUserId && (
+            <form onSubmit={handleUpdateUser} className="admin-form">
+              <FormInput
+                placeholder="Nombre de usuario"
+                value={editUser.username}
+                onChange={(e) => setEditUser({ ...editUser, username: e.target.value })}
+                required
+              />
+              <Checkbox
+                label="Admin"
+                checked={editUser.is_admin}
+                onChange={(checked) => setEditUser({ ...editUser, is_admin: checked })}
+              />
+              <div className="form-actions">
+                <Button type="submit" size="sm" disabled={saving}>
+                  Actualizar Usuario
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setEditingUserId(null);
+                    setEditUser({ username: "", is_admin: false });
+                  }}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          )}
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHeadCell>Email</TableHeadCell>
+                <TableHeadCell>Nombre de Usuario</TableHeadCell>
+                <TableHeadCell>Admin</TableHeadCell>
+                <TableHeadCell>Fecha de Creación</TableHeadCell>
+                <TableHeadCell>Acciones</TableHeadCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.username}</TableCell>
+                  <TableCell>{user.is_admin ? "Sí" : "No"}</TableCell>
+                  <TableCell>
+                    {new Date(user.created_at).toLocaleDateString("es-ES")}
+                  </TableCell>
+                  <TableCell>
+                    <div className="action-buttons">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleEditUser(user.id)}
+                      >
+                        <Pencil size={16} />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteUser(user.id)}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
