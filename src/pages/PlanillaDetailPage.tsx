@@ -3,10 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { usePlanilla } from '../hooks/usePlanillas';
 import { useAuth } from '../hooks/useAuth';
+import { useAuditLog } from '../hooks/useAuditLog';
 import { StatusBadge } from '../components/base/StatusBadge';
 import { Button } from '../components/base/Button';
 import { FormInput } from '../components/base/FormInput';
 import { Table, TableHeader, TableBody, TableRow, TableHeadCell, TableCell } from '../components/base/Table';
+import { AuditLog } from '../components/AuditLog.tsx';
 import { supabase } from '../libs/supabase';
 import { categoryLimits, Jugador, Persona } from '../types';
 import { ArrowLeft, Plus, Trash2, Send } from 'lucide-react';
@@ -17,6 +19,7 @@ export const PlanillaDetailPage = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { planilla, loading, refetch } = usePlanilla(id!);
+  const { auditLogs, loading: auditLoading, refetch: refetchAudit } = useAuditLog(id!);
   const [saving, setSaving] = useState(false);
 
   const [newJugador, setNewJugador] = useState<Partial<Jugador>>({
@@ -35,8 +38,6 @@ export const PlanillaDetailPage = () => {
   });
 
   const canEdit = planilla?.status === 'Pendiente de envío' || profile?.is_admin;
-  console.log('Planilla:', planilla);
-  console.log('Category Limits:', categoryLimits);
 
   const limit = categoryLimits.find(item => item.year == planilla?.team?.category)?.limit;
 
@@ -64,6 +65,7 @@ export const PlanillaDetailPage = () => {
 
       setNewJugador({ dni: '', number: 0, name: '', second_name: '' });
       await refetch();
+      await refetchAudit();
     } catch (error) {
       console.error('Error adding jugador:', error);
       alert('Error al agregar jugador');
@@ -77,6 +79,7 @@ export const PlanillaDetailPage = () => {
       const { error } = await supabase.from('jugadores').delete().eq('id', jugadorId);
       if (error) throw error;
       await refetch();
+      await refetchAudit();
     } catch (error) {
       console.error('Error deleting jugador:', error);
       alert('Error al eliminar jugador');
@@ -103,6 +106,7 @@ export const PlanillaDetailPage = () => {
 
       setNewPersona({ dni: '', name: '', second_name: '', phone_number: '', charge: 'Técnico' });
       await refetch();
+      await refetchAudit();
     } catch (error) {
       console.error('Error adding persona:', error);
       alert('Error al agregar persona');
@@ -116,6 +120,7 @@ export const PlanillaDetailPage = () => {
       const { error } = await supabase.from('personas').delete().eq('id', personaId);
       if (error) throw error;
       await refetch();
+      await refetchAudit();
     } catch (error) {
       console.error('Error deleting persona:', error);
       alert('Error al eliminar persona');
@@ -135,6 +140,7 @@ export const PlanillaDetailPage = () => {
 
       if (error) throw error;
       await refetch();
+      await refetchAudit();
       alert('Planilla enviada para aprobación');
     } catch (error) {
       console.error('Error submitting planilla:', error);
@@ -378,6 +384,8 @@ export const PlanillaDetailPage = () => {
             </div>
           )}
         </div>
+
+        <AuditLog auditLogs={auditLogs} loading={auditLoading} />
       </div>
     </Layout>
   );

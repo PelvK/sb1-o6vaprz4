@@ -87,3 +87,24 @@ export const categoryLimits: { year: Category; limit: number }[] = [
 ];
 
 
+export type AuditAction =
+  | 'jugador_added'
+  | 'jugador_deleted'
+  | 'persona_added'
+  | 'persona_deleted'
+  | 'status_changed';
+
+export type AuditEntityType = 'jugador' | 'persona' | 'planilla';
+
+export interface AuditLog {
+  id: string;
+  planilla_id: string;
+  user_id: string | null;
+  action: AuditAction;
+  entity_type: AuditEntityType | null;
+  entity_id: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
+  username: string | null;
+}
+

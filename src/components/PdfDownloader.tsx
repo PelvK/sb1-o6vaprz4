@@ -29,19 +29,14 @@ export const PdfDownloader = ({
     doc.text(`${planilla.team?.category || ""}`, 40, 38);
 
     if (planilla.jugadores && planilla.jugadores.length > 0) {
-        for (let i = 0; i < 18; i++) {
-            const jugador = planilla.jugadores.find(j => j.number === i + 1);
+        for (let i = 0; i < planilla.jugadores.length; i++) {
+            const jugador = planilla.jugadores[i];
             const y = 48 + (i + 1) * 7.2;
-            if (jugador && jugador.number === i + 1) {
             doc.setFont("helvetica", "bold");
+            doc.text(`${jugador.number || ""}`, 9.5, y);
+            doc.setFont("helvetica", "normal");
             doc.text(`${jugador.name || ""}` + (jugador.second_name ? ` ${jugador.second_name}` : ""), 17, y);
             doc.text(`${jugador.dni || ""}`, 87, y);
-            }
-            else {
-            doc.setFont("helvetica", "normal");
-            doc.text(`-----------------`, 17, y);
-            doc.text(`-----------------`, 87, y);
-            }
         }
     }
 
