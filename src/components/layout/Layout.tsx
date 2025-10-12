@@ -24,7 +24,6 @@ export const Layout = ({ children }: LayoutProps) => {
   };
 
   const menuItems = [
-    // { icon: Home, label: 'Dashboard', path: '/dashboard' },
     { icon: FileText, label: 'Planillas', path: '/planillas' },
   ];
 

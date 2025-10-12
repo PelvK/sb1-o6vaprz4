@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../libs/supabase';
+import { useState, useEffect, useCallback } from 'react';
+import { api } from '../libs/api';
 import { Planilla, PlanillaWithDetails } from '../types';
 
 export const usePlanillas = () => {
@@ -10,16 +10,12 @@ export const usePlanillas = () => {
   const fetchPlanillas = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('planillas')
-        .select('*, team:teams(*)')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await api.get<Planilla[]>('planillas.php');
       setPlanillas(data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading planillas');
     } finally {
+      console.log("[DEBUG] PLANILLAS:", planillas);
       setLoading(false);
     }
   };
@@ -36,51 +32,37 @@ export const usePlanilla = (id: string) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPlanilla = async () => {
+  const fetchPlanilla = useCallback(async () => {
     try {
       setLoading(true);
-      const { data: planillaData, error: planillaError } = await supabase
-        .from('planillas')
-        .select('*, team:teams(*)')
-        .eq('id', id)
-        .maybeSingle();
-
-      if (planillaError) throw planillaError;
-      if (!planillaData) throw new Error('Planilla not found');
-
-      const { data: jugadores, error: jugadoresError } = await supabase
-        .from('jugadores')
-        .select('*')
-        .eq('planilla_id', id)
-        .order('number', { ascending: true });
-
-      if (jugadoresError) throw jugadoresError;
-
-      const { data: personas, error: personasError } = await supabase
-        .from('personas')
-        .select('*')
-        .eq('planilla_id', id)
-        .order('charge', { ascending: true });
-
-      if (personasError) throw personasError;
-
-      setPlanilla({
-        ...planillaData,
-        jugadores: jugadores || [],
-        personas: personas || [],
-      });
+      const data = await api.get<PlanillaWithDetails>(`planillas.php?id=${id}`);
+      setPlanilla(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading planilla');
     } finally {
+      console.log("[DEBUG] PLANILLA:", planilla);
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     if (id) {
       fetchPlanilla();
     }
-  }, [id]);
+  }, [id, fetchPlanilla]);
 
   return { planilla, loading, error, refetch: fetchPlanilla };
 };
+
+export const createPlanilla = async (planilla: Partial<Planilla>) => {
+  return api.post<{ id: string; message: string }>('planillas.php', planilla);
+};
+
+export const updatePlanilla = async (id: string, planilla: Partial<Planilla>) => {
+  return api.put<{ message: string }>('planillas.php', { ...planilla, id });
+};
+
+export const deletePlanilla = async (id: string) => {
+  return api.delete<{ message: string }>(`planillas.php?id=${id}`);
+};
+

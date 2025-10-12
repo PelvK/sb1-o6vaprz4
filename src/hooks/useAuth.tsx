@@ -46,17 +46,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loadProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost/apis'}/profiles.php?id=${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to load profile');
+
+      const data = await response.json();
+
       setProfile(data);
     } catch (error) {
       console.error('Error loading profile:', error);
     } finally {
+      console.log("[DEBUG] PROFILE:", profile);
       setLoading(false);
     }
   };
@@ -71,26 +76,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (error) throw error;
 
     if (data.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost/apis'}/profiles.php`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${data.session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           id: data.user.id,
-          username,
-          is_admin: false,
-        });
+          email: data.user.email,
+          full_name: username,
+          role: 'user',
+        }),
+      });
 
-      if (profileError) throw profileError;
+      if (!response.ok) throw new Error('Failed to create profile');
     }
   };
 
   const signOut = async () => {
-  try {
-    await supabase.auth.signOut();
-  } catch (error) {
-    if (supabase.auth.setSession) supabase.auth.setSession(null);
-  }
-  window.location.href = "/tournaments/valesanito/management/login";
-};
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  };
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut }}>

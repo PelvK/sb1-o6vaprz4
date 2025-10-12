@@ -1,35 +1,30 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../libs/supabase';
+import { useState, useEffect, useCallback } from 'react';
+import { api } from '../libs/api';
 import { AuditLog } from '../types';
 
 export const useAuditLog = (planillaId: string) => {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchAuditLogs = async () => {
+  const fetchAuditLogs = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('planilla_audit_log_with_profile')
-        .select('*')
-        .eq('planilla_id', planillaId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await api.get<AuditLog[]>(`audit.php?planilla_id=${planillaId}`);
       setAuditLogs(data || []);
     } catch (error) {
       console.error('Error fetching audit logs:', error);
       setAuditLogs([]);
     } finally {
+      console.log("[DEBUG] Audit Logs:", auditLogs);
       setLoading(false);
     }
-  };
+  }, [planillaId]);
 
   useEffect(() => {
     if (planillaId) {
       fetchAuditLogs();
     }
-  }, [planillaId]);
+  }, [planillaId, fetchAuditLogs]);
 
   return { auditLogs, loading, refetch: fetchAuditLogs };
 };

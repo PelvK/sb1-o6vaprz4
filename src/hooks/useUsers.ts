@@ -11,7 +11,6 @@ export interface User {
 
 const getAuthHeaders = async () => {
   const { data: { session } } = await supabase.auth.getSession();
-  console.log("TOKEN:", session?.access_token);
 
   return {
     'Authorization': `Bearer ${session?.access_token}`,
