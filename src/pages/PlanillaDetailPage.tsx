@@ -10,9 +10,10 @@ import { FormInput } from '../components/base/FormInput';
 import { Table, TableHeader, TableBody, TableRow, TableHeadCell, TableCell } from '../components/base/Table';
 import { AuditLog } from '../components/AuditLog.tsx';
 import { supabase } from '../libs/supabase';
-import { categoryLimits, Jugador, Persona } from '../types';
+import { categoryLimits, Jugador, Persona, PersonaCharge } from '../types';
 import { ArrowLeft, Plus, Trash2, Send } from 'lucide-react';
 import './PlanillaDetailPage.css';
+import { createJugador, deleteJugador } from '../hooks/useJugadores.ts';
 
 export const PlanillaDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -46,6 +47,7 @@ export const PlanillaDetailPage = () => {
     navigate(-1);
   };
 
+  /** Migrated! */
   const handleAddJugador = async () => {
     if (!planilla || !newJugador.dni || !newJugador.name || !newJugador.second_name) {
       alert('Por favor completa todos los campos del jugador');
@@ -53,7 +55,7 @@ export const PlanillaDetailPage = () => {
     }
 
     try {
-      const { error } = await supabase.from('jugadores').insert({
+      const response = await createJugador({
         planilla_id: planilla.id,
         dni: newJugador.dni,
         number: newJugador.number || 0,
@@ -61,7 +63,9 @@ export const PlanillaDetailPage = () => {
         second_name: newJugador.second_name,
       });
 
-      if (error) throw error;
+      if (!response) {
+        throw new Error(response?.message || "Error al crear equipo");
+      }
 
       setNewJugador({ dni: '', number: 0, name: '', second_name: '' });
       await refetch();
@@ -72,12 +76,13 @@ export const PlanillaDetailPage = () => {
     }
   };
 
+  /** Migrated! */
   const handleDeleteJugador = async (jugadorId: string) => {
     if (!confirm('¿Estás seguro de eliminar este jugador?')) return;
 
     try {
-      const { error } = await supabase.from('jugadores').delete().eq('id', jugadorId);
-      if (error) throw error;
+      const response = await deleteJugador(jugadorId);
+      if (!response) throw response.error;
       await refetch();
       await refetchAudit();
     } catch (error) {
@@ -86,6 +91,7 @@ export const PlanillaDetailPage = () => {
     }
   };
 
+  /** @todo make the api first */
   const handleAddPersona = async () => {
     if (!planilla || !newPersona.dni || !newPersona.name || !newPersona.second_name || !newPersona.phone_number) {
       alert('Por favor completa todos los campos');
@@ -113,6 +119,7 @@ export const PlanillaDetailPage = () => {
     }
   };
 
+  /** @todo make the api first */
   const handleDeletePersona = async (personaId: string) => {
     if (!confirm('¿Estás seguro de eliminar esta persona?')) return;
 
@@ -127,6 +134,7 @@ export const PlanillaDetailPage = () => {
     }
   };
 
+  /** @todo make the api first */
   const handleSubmitForApproval = async () => {
     if (!planilla) return;
     if (!confirm('¿Deseas enviar la planilla para aprobación? No podrás editarla después.')) return;
@@ -168,6 +176,7 @@ export const PlanillaDetailPage = () => {
 
   const tecnicos = planilla.personas.filter((p) => p.charge === 'Técnico');
   const delegados = planilla.personas.filter((p) => p.charge === 'Delegado');
+  const medicos = planilla.personas.filter((p) => p.charge === 'Médico');
 
   return (
     <Layout>
@@ -308,6 +317,45 @@ export const PlanillaDetailPage = () => {
 
         <div className="section">
           <div className="section-header">
+            <h3 className="section-title">Medicos: {medicos.length}</h3>
+          </div>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHeadCell>DNI</TableHeadCell>
+                <TableHeadCell>Nombre</TableHeadCell>
+                <TableHeadCell>Apellido</TableHeadCell>
+                <TableHeadCell>Teléfono</TableHeadCell>
+                {canEdit && <TableHeadCell>Acciones</TableHeadCell>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {medicos.map((medico) => (
+                <TableRow key={medico.id}>
+                  <TableCell>{medico.dni}</TableCell>
+                  <TableCell>{medico.name}</TableCell>
+                  <TableCell>{medico.second_name}</TableCell>
+                  <TableCell>{medico.phone_number}</TableCell>
+                  {canEdit && (
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => handleDeletePersona(medico.id)}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        <div className="section">
+          <div className="section-header">
             <h3 className="section-title">Delegados: {delegados.length}</h3>
           </div>
 
@@ -343,10 +391,11 @@ export const PlanillaDetailPage = () => {
               ))}
             </TableBody>
           </Table>
+          </div>
 
           {canEdit && (
             <div className="add-form">
-              <h4 className="add-form-title">Agregar Técnico o Delegado</h4>
+              <h4 className="add-form-title">Agregar Técnico, Médico o Delegado</h4>
               <div className="add-form-grid">
                 <FormInput
                   placeholder="DNI"
@@ -371,10 +420,11 @@ export const PlanillaDetailPage = () => {
                 <select
                   className="filter-select"
                   value={newPersona.charge}
-                  onChange={(e) => setNewPersona({ ...newPersona, charge: e.target.value as 'Técnico' | 'Delegado' })}
+                  onChange={(e) => setNewPersona({ ...newPersona, charge: e.target.value as PersonaCharge })}
                 >
                   <option value="Técnico">Técnico</option>
                   <option value="Delegado">Delegado</option>
+                  <option value="Médico">Médico</option>
                 </select>
               </div>
               <Button onClick={handleAddPersona} size="sm">
@@ -383,7 +433,7 @@ export const PlanillaDetailPage = () => {
               </Button>
             </div>
           )}
-        </div>
+
 
         <AuditLog auditLogs={auditLogs} loading={auditLoading} />
       </div>

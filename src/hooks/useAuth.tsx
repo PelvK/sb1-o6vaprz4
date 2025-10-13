@@ -20,6 +20,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log("[DEBUG] AUTH:", { user, profile });
+  }, [user, profile]);
+
+  useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -61,7 +65,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error('Error loading profile:', error);
     } finally {
-      console.log("[DEBUG] PROFILE:", profile);
       setLoading(false);
     }
   };

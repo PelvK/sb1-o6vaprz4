@@ -6,6 +6,10 @@ export const useAuditLog = (planillaId: string) => {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    console.log("[DEBUG] AUDIT LOGS:", auditLogs);
+  }, [auditLogs]);
+
   const fetchAuditLogs = useCallback(async () => {
     try {
       setLoading(true);
@@ -15,7 +19,6 @@ export const useAuditLog = (planillaId: string) => {
       console.error('Error fetching audit logs:', error);
       setAuditLogs([]);
     } finally {
-      console.log("[DEBUG] Audit Logs:", auditLogs);
       setLoading(false);
     }
   }, [planillaId]);

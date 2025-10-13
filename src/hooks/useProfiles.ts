@@ -7,6 +7,10 @@ export const useProfiles = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    console.log("[DEBUG] PROFILES:", profiles);
+  }, [profiles]);
+
   const fetchProfiles = async () => {
     try {
       setLoading(true);
@@ -15,7 +19,6 @@ export const useProfiles = () => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading profiles');
     } finally {
-      console.log("[DEBUG] PROFILES:", profiles);
       setLoading(false);
     }
   };
@@ -40,7 +43,6 @@ export const useProfile = (id: string) => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading profile');
     } finally {
-      console.log("[DEBUG] PROFILE:", profile);
       setLoading(false);
     }
   }, [id]);

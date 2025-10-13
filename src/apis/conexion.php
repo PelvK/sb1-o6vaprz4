@@ -62,11 +62,20 @@ function getAuthUserId() {
     }
 
     $token = str_replace('Bearer ', '', $authHeader);
-
     if (empty($token)) {
         sendError("Invalid token", 401);
     }
 
-    return $token;
+    $parts = explode('.', $token);
+    if (count($parts) !== 3) {
+        sendError("Malformed token", 401);
+    }
+
+    $payload = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true);
+
+    if (!$payload || !isset($payload['sub'])) {
+        sendError("Invalid token payload", 401);
+    }
+
+    return $payload['sub'];
 }
-?>

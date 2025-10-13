@@ -7,7 +7,11 @@ export const useTeams = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTeams = async () => {
+  useEffect(() => {
+    console.log("[DEBUG] TEAMS:", teams);
+  }, [teams]);
+
+  const fetchTeams = useCallback(async () => {
     try {
       setLoading(true);
       const data = await api.get<Team[]>('teams.php');
@@ -15,14 +19,13 @@ export const useTeams = () => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading teams');
     } finally {
-      console.log("[DEBUG] TEAMS:", teams);
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchTeams();
-  }, []);
+  }, [fetchTeams]);
 
   return { teams, loading, error, refetch: fetchTeams };
 };
@@ -40,7 +43,6 @@ export const useTeam = (id: string) => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading team');
     } finally {
-      console.log("[DEBUG] TEAM:", team);
       setLoading(false);
     }
   }, [id]);

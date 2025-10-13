@@ -1,4 +1,11 @@
 <?php
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Authorization, Content-Type');
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit();
+}
 require_once 'conexion.php';
 
 $conn = getDBConnection();
@@ -26,35 +33,39 @@ function handleGet($conn, $userId) {
     $id = $_GET['id'] ?? null;
 
     if ($id) {
-        $stmt = $conn->prepare("SELECT * FROM teams WHERE id = :id");
+        $stmt = $conn->prepare("SELECT id, nombre, category, created_at FROM teams WHERE id = :id");
         $stmt->execute(['id' => $id]);
-        $team = $stmt->fetch();
+        $team = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$team) {
             sendError("Team not found", 404);
         }
 
+        // Miembros (si los querés agregar)
         $stmt = $conn->prepare("
-            SELECT id, email, full_name, role
+            SELECT id, username, email, is_admin, created_at
             FROM profiles
             WHERE team_id = :team_id
-            ORDER BY full_name
+            ORDER BY username
         ");
         $stmt->execute(['team_id' => $id]);
-        $members = $stmt->fetchAll();
+        $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Forzar bool en is_admin
+        foreach ($members as &$m) { $m['is_admin'] = (bool)$m['is_admin']; }
 
         $team['members'] = $members;
+
         sendResponse($team);
     } else {
         $stmt = $conn->prepare("
-            SELECT t.*, COUNT(p.id) as member_count
+            SELECT t.id, t.nombre, t.category, t.created_at, COUNT(p.id) as member_count
             FROM teams t
             LEFT JOIN profiles p ON t.id = p.team_id
             GROUP BY t.id
             ORDER BY t.created_at DESC
         ");
         $stmt->execute();
-        $teams = $stmt->fetchAll();
+        $teams = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         sendResponse($teams);
     }
@@ -67,29 +78,34 @@ function handlePost($conn, $userId) {
         sendError("Invalid JSON data", 400);
     }
 
-    $stmt = $conn->prepare("SELECT role FROM profiles WHERE id = :user_id");
+    // Solo admin puede crear equipos
+    $stmt = $conn->prepare("SELECT is_admin FROM profiles WHERE id = :user_id");
     $stmt->execute(['user_id' => $userId]);
-    $userProfile = $stmt->fetch();
+    $userProfile = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$userProfile || $userProfile['role'] !== 'admin') {
+    if (!$userProfile || !$userProfile['is_admin']) {
         sendError("Unauthorized", 403);
     }
 
-    if (!isset($data['name']) || empty($data['name'])) {
-        sendError("Field 'name' is required", 400);
+    if (!isset($data['nombre']) || empty($data['nombre'])) {
+        sendError("Field 'nombre' is required", 400);
+    }
+    if (!isset($data['category']) || empty($data['category'])) {
+        sendError("Field 'category' is required", 400);
     }
 
     $id = uniqid('team_', true);
 
     try {
         $stmt = $conn->prepare("
-            INSERT INTO teams (id, name)
-            VALUES (:id, :name)
+            INSERT INTO teams (id, nombre, category, created_at)
+            VALUES (:id, :nombre, :category, NOW())
         ");
 
         $stmt->execute([
             'id' => $id,
-            'name' => $data['name']
+            'nombre' => $data['nombre'],
+            'category' => $data['category']
         ]);
 
         sendResponse(['id' => $id, 'message' => 'Team created successfully'], 201);
@@ -105,11 +121,12 @@ function handlePut($conn, $userId) {
         sendError("Team ID is required", 400);
     }
 
-    $stmt = $conn->prepare("SELECT role FROM profiles WHERE id = :user_id");
+    // Solo admin puede modificar equipos
+    $stmt = $conn->prepare("SELECT is_admin FROM profiles WHERE id = :user_id");
     $stmt->execute(['user_id' => $userId]);
-    $userProfile = $stmt->fetch();
+    $userProfile = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$userProfile || $userProfile['role'] !== 'admin') {
+    if (!$userProfile || !$userProfile['is_admin']) {
         sendError("Unauthorized", 403);
     }
 
@@ -119,9 +136,13 @@ function handlePut($conn, $userId) {
         $updates = [];
         $params = ['id' => $id];
 
-        if (isset($data['name'])) {
-            $updates[] = "name = :name";
-            $params['name'] = $data['name'];
+        if (isset($data['nombre'])) {
+            $updates[] = "nombre = :nombre";
+            $params['nombre'] = $data['nombre'];
+        }
+        if (isset($data['category'])) {
+            $updates[] = "category = :category";
+            $params['category'] = $data['category'];
         }
 
         if (empty($updates)) {
@@ -149,11 +170,12 @@ function handleDelete($conn, $userId) {
         sendError("Team ID is required", 400);
     }
 
-    $stmt = $conn->prepare("SELECT role FROM profiles WHERE id = :user_id");
+    // Solo admin puede borrar equipos
+    $stmt = $conn->prepare("SELECT is_admin FROM profiles WHERE id = :user_id");
     $stmt->execute(['user_id' => $userId]);
-    $userProfile = $stmt->fetch();
+    $userProfile = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$userProfile || $userProfile['role'] !== 'admin') {
+    if (!$userProfile || !$userProfile['is_admin']) {
         sendError("Unauthorized", 403);
     }
 
