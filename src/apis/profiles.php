@@ -1,4 +1,11 @@
 <?php
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Authorization, Content-Type');
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit();
+}
 require_once 'conexion.php';
 
 $conn = getDBConnection();
@@ -27,36 +34,40 @@ function handleGet($conn, $userId) {
 
     if ($id) {
         $stmt = $conn->prepare("
-            SELECT p.*, t.name as team_name
+            SELECT p.id, p.username, p.email, p.is_admin, p.created_at
             FROM profiles p
-            LEFT JOIN teams t ON p.team_id = t.id
             WHERE p.id = :id
         ");
         $stmt->execute(['id' => $id]);
-        $profile = $stmt->fetch();
+        $profile = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$profile) {
             sendError("Profile not found", 404);
         }
 
+        $profile['is_admin'] = (bool)$profile['is_admin'];
+
         sendResponse($profile);
     } else {
-        $stmt = $conn->prepare("SELECT role FROM profiles WHERE id = :user_id");
+        $stmt = $conn->prepare("SELECT is_admin FROM profiles WHERE id = :user_id");
         $stmt->execute(['user_id' => $userId]);
-        $userProfile = $stmt->fetch();
+        $userProfile = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$userProfile || $userProfile['role'] !== 'admin') {
+        if (!$userProfile || !$userProfile['is_admin']) {
             sendError("Unauthorized", 403);
         }
 
         $stmt = $conn->prepare("
-            SELECT p.*, t.name as team_name
-            FROM profiles p
-            LEFT JOIN teams t ON p.team_id = t.id
-            ORDER BY p.created_at DESC
+            SELECT id, username, email, is_admin, created_at
+            FROM profiles
+            ORDER BY created_at DESC
         ");
         $stmt->execute();
-        $profiles = $stmt->fetchAll();
+        $profiles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($profiles as &$p) {
+            $p['is_admin'] = (bool)$p['is_admin'];
+        }
 
         sendResponse($profiles);
     }
@@ -69,15 +80,15 @@ function handlePost($conn, $userId) {
         sendError("Invalid JSON data", 400);
     }
 
-    $stmt = $conn->prepare("SELECT role FROM profiles WHERE id = :user_id");
+    $stmt = $conn->prepare("SELECT is_admin FROM profiles WHERE id = :user_id");
     $stmt->execute(['user_id' => $userId]);
-    $userProfile = $stmt->fetch();
+    $userProfile = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$userProfile || $userProfile['role'] !== 'admin') {
+    if (!$userProfile || !$userProfile['is_admin']) {
         sendError("Unauthorized", 403);
     }
 
-    $required = ['id', 'email'];
+    $required = ['id', 'email', 'username'];
     foreach ($required as $field) {
         if (!isset($data[$field]) || empty($data[$field])) {
             sendError("Field '$field' is required", 400);
@@ -86,16 +97,15 @@ function handlePost($conn, $userId) {
 
     try {
         $stmt = $conn->prepare("
-            INSERT INTO profiles (id, email, full_name, role, team_id)
-            VALUES (:id, :email, :full_name, :role, :team_id)
+            INSERT INTO profiles (id, email, username, is_admin, created_at)
+            VALUES (:id, :email, :username, :is_admin, NOW())
         ");
 
         $stmt->execute([
             'id' => $data['id'],
             'email' => $data['email'],
-            'full_name' => $data['full_name'] ?? null,
-            'role' => $data['role'] ?? 'user',
-            'team_id' => $data['team_id'] ?? null
+            'username' => $data['username'],
+            'is_admin' => isset($data['is_admin']) && $data['is_admin'] ? 1 : 0,
         ]);
 
         sendResponse(['message' => 'Profile created successfully'], 201);
@@ -116,11 +126,11 @@ function handlePut($conn, $userId) {
 
     $id = $data['id'];
 
-    $stmt = $conn->prepare("SELECT role FROM profiles WHERE id = :user_id");
+    $stmt = $conn->prepare("SELECT is_admin FROM profiles WHERE id = :user_id");
     $stmt->execute(['user_id' => $userId]);
-    $userProfile = $stmt->fetch();
+    $userProfile = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($id !== $userId && (!$userProfile || $userProfile['role'] !== 'admin')) {
+    if ($id !== $userId && (!$userProfile || !$userProfile['is_admin'])) {
         sendError("Unauthorized", 403);
     }
 
@@ -128,16 +138,16 @@ function handlePut($conn, $userId) {
         $updates = [];
         $params = ['id' => $id];
 
-        $allowedFields = ['full_name', 'role', 'team_id'];
+        $allowedFields = ['username', 'email', 'is_admin'];
 
-        if ($userProfile['role'] !== 'admin') {
-            $allowedFields = ['full_name'];
+        if (!$userProfile['is_admin']) {
+            $allowedFields = ['username', 'email'];
         }
 
         foreach ($allowedFields as $field) {
             if (isset($data[$field])) {
                 $updates[] = "$field = :$field";
-                $params[$field] = $data[$field];
+                $params[$field] = ($field === 'is_admin') ? (isset($data[$field]) && $data[$field] ? 1 : 0) : $data[$field];
             }
         }
 
@@ -162,11 +172,11 @@ function handleDelete($conn, $userId) {
         sendError("Profile ID is required", 400);
     }
 
-    $stmt = $conn->prepare("SELECT role FROM profiles WHERE id = :user_id");
+    $stmt = $conn->prepare("SELECT is_admin FROM profiles WHERE id = :user_id");
     $stmt->execute(['user_id' => $userId]);
-    $userProfile = $stmt->fetch();
+    $userProfile = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$userProfile || $userProfile['role'] !== 'admin') {
+    if (!$userProfile || !$userProfile['is_admin']) {
         sendError("Unauthorized", 403);
     }
 

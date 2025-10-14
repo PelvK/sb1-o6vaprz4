@@ -90,9 +90,14 @@ export const categoryLimits: { year: Category; limit: number }[] = [
 export type AuditAction =
   | 'jugador_added'
   | 'jugador_deleted'
+  | 'jugador_updated'
   | 'persona_added'
   | 'persona_deleted'
-  | 'status_changed';
+  | 'persona_updated'
+  | 'status_changed'
+  | 'planilla_created'
+  | 'planilla_updated'
+  | 'planilla_deleted';
 
 export type AuditEntityType = 'jugador' | 'persona' | 'planilla';
 

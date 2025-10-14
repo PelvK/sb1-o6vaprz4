@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
-import { usePlanilla } from '../hooks/usePlanillas';
+import { updatePlanilla, usePlanilla, usePlanillas } from '../hooks/usePlanillas';
 import { useAuth } from '../hooks/useAuth';
 import { useAuditLog } from '../hooks/useAuditLog';
 import { StatusBadge } from '../components/base/StatusBadge';
@@ -9,14 +9,15 @@ import { Button } from '../components/base/Button';
 import { FormInput } from '../components/base/FormInput';
 import { Table, TableHeader, TableBody, TableRow, TableHeadCell, TableCell } from '../components/base/Table';
 import { AuditLog } from '../components/AuditLog.tsx';
-import { supabase } from '../libs/supabase';
-import { categoryLimits, Jugador, Persona, PersonaCharge } from '../types';
-import { ArrowLeft, Plus, Trash2, Send } from 'lucide-react';
+import { categoryLimits, Jugador, Persona, PersonaCharge, PlanillaStatus } from '../types';
+import { ArrowLeft, Plus, Trash2, Send, CheckCircle, XCircle } from 'lucide-react';
 import './PlanillaDetailPage.css';
 import { createJugador, deleteJugador } from '../hooks/useJugadores.ts';
+import { createPersona, deletePersona } from '../hooks/usePersonas.ts';
 
 export const PlanillaDetailPage = () => {
   const { id } = useParams<{ id: string }>();
+  const { refetch: refetchPlanillas } = usePlanillas();
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { planilla, loading, refetch } = usePlanilla(id!);
@@ -64,7 +65,7 @@ export const PlanillaDetailPage = () => {
       });
 
       if (!response) {
-        throw new Error(response?.message || "Error al crear equipo");
+        throw new Error(response || "Error al crear equipo");
       }
 
       setNewJugador({ dni: '', number: 0, name: '', second_name: '' });
@@ -82,7 +83,7 @@ export const PlanillaDetailPage = () => {
 
     try {
       const response = await deleteJugador(jugadorId);
-      if (!response) throw response.error;
+      if (!response) throw response;
       await refetch();
       await refetchAudit();
     } catch (error) {
@@ -91,72 +92,118 @@ export const PlanillaDetailPage = () => {
     }
   };
 
-  /** @todo make the api first */
+  /** Migrated! */
   const handleAddPersona = async () => {
-    if (!planilla || !newPersona.dni || !newPersona.name || !newPersona.second_name || !newPersona.phone_number) {
-      alert('Por favor completa todos los campos');
+  if (!planilla || !newPersona.dni || !newPersona.name || !newPersona.second_name || !newPersona.phone_number || !newPersona.charge) {
+    alert('Por favor completa todos los campos');
+    return;
+  }
+
+  if(newPersona.charge === 'Técnico' && planilla.personas.filter(p => p.charge === 'Técnico').length >= 1) {
+    alert('Solo se permite un técnico por planilla');
+    return;
+  }
+  if(newPersona.charge === 'Delegado' && planilla.personas.filter(p => p.charge === 'Delegado').length >= 1) {
+    alert('Solo se permite un delegado por planilla');
+    return;
+  }
+  if(newPersona.charge === 'Médico' && planilla.personas.filter(p => p.charge === 'Médico').length >= 1) {
+    alert('Solo se permite un médico por planilla');
+    return;
+  }
+
+  try {
+    const response = await createPersona({
+      planilla_id: planilla.id,
+      dni: newPersona.dni,
+      name: newPersona.name,
+      second_name: newPersona.second_name,
+      phone_number: newPersona.phone_number,
+      charge: newPersona.charge,
+    });
+
+    if (!response || !response.message) {
+      throw new Error(response?.message || "Error al crear persona");
+    }
+
+    setNewPersona({ dni: '', name: '', second_name: '', phone_number: '', charge: 'Técnico' });
+    await refetch();
+    await refetchAudit();
+  } catch (error) {
+    console.error('Error adding persona:', error);
+    alert('Error al agregar persona');
+  }
+};
+
+/** Migrated! */
+const handleDeletePersona = async (personaId: string) => {
+  if (!confirm('¿Estás seguro de eliminar esta persona?')) return;
+
+  try {
+    await deletePersona(personaId);
+    await refetch();
+    await refetchAudit();
+  } catch (error) {
+    console.error('Error deleting persona:', error);
+    alert('Error al eliminar persona');
+  }
+};
+
+/** Migrated! */
+const handleChangeStatus = async (
+    planillaId: string,
+    newStatus: PlanillaStatus
+  ) => {
+    if (!confirm(`¿Deseas cambiar el estado de la planilla a "${newStatus}"?`))
       return;
-    }
-
-    try {
-      const { error } = await supabase.from('personas').insert({
-        planilla_id: planilla.id,
-        dni: newPersona.dni,
-        name: newPersona.name,
-        second_name: newPersona.second_name,
-        phone_number: newPersona.phone_number,
-        charge: newPersona.charge!,
-      });
-
-      if (error) throw error;
-
-      setNewPersona({ dni: '', name: '', second_name: '', phone_number: '', charge: 'Técnico' });
-      await refetch();
-      await refetchAudit();
-    } catch (error) {
-      console.error('Error adding persona:', error);
-      alert('Error al agregar persona');
-    }
-  };
-
-  /** @todo make the api first */
-  const handleDeletePersona = async (personaId: string) => {
-    if (!confirm('¿Estás seguro de eliminar esta persona?')) return;
-
-    try {
-      const { error } = await supabase.from('personas').delete().eq('id', personaId);
-      if (error) throw error;
-      await refetch();
-      await refetchAudit();
-    } catch (error) {
-      console.error('Error deleting persona:', error);
-      alert('Error al eliminar persona');
-    }
-  };
-
-  /** @todo make the api first */
-  const handleSubmitForApproval = async () => {
-    if (!planilla) return;
-    if (!confirm('¿Deseas enviar la planilla para aprobación? No podrás editarla después.')) return;
 
     try {
       setSaving(true);
-      const { error } = await supabase
-        .from('planillas')
-        .update({ status: 'Pendiente de aprobación' })
-        .eq('id', planilla.id);
-
-      if (error) throw error;
+      const response = await updatePlanilla(planillaId, { status: newStatus });
+      alert(response.message || "Estado actualizado exitosamente");
+      await refetchPlanillas();
       await refetch();
       await refetchAudit();
-      alert('Planilla enviada para aprobación');
     } catch (error) {
-      console.error('Error submitting planilla:', error);
-      alert('Error al enviar planilla');
+      console.error("Error updating planilla status:", error);
+      alert("Error al actualizar el estado de la planilla");
     } finally {
       setSaving(false);
     }
   };
+
+
+  /** Migrated! */
+  const handleSubmitForApproval = async () => {
+  if (!planilla) return;
+  if (!confirm('¿Deseas enviar la planilla para aprobación? No podrás editarla después.')) return;
+  if(planilla.jugadores.length === 0) {
+    alert('La planilla debe tener al menos un jugador para ser enviada.');
+    return;
+  }
+  if(planilla.personas.filter(p => p.charge === 'Técnico').length === 0) {
+    alert('La planilla debe tener al menos un técnico para ser enviada.');
+    return;
+  }
+  if(planilla.personas.filter(p => p.charge === 'Delegado').length === 0) {
+    alert('La planilla debe tener al menos un delegado para ser enviada.');
+    return;
+  }
+
+  try {
+    setSaving(true);
+    const { message } = await updatePlanilla(planilla.id, { status: 'Pendiente de aprobación' });
+    if (!message) throw new Error('No se pudo enviar la planilla');
+    await refetch();
+    await refetchAudit();
+    alert('Planilla enviada para aprobación');
+  } catch (error) {
+    console.error('Error submitting planilla:', error);
+    alert('Error al enviar planilla');
+  } finally {
+    setSaving(false);
+  }
+};
 
   if (loading) {
     return (
@@ -200,13 +247,32 @@ export const PlanillaDetailPage = () => {
                 Enviar para aprobación
               </Button>
             )}
+            {canEdit && planilla.status === 'Pendiente de aprobación' && (
+              <>
+                <Button onClick={() => handleChangeStatus(planilla.id, "Aprobada")} disabled={saving}>
+                  <CheckCircle size={18} />
+                  Aprobar planilla
+                </Button>
+                <Button onClick={() => handleChangeStatus(planilla.id, "Pendiente de envío")} disabled={saving}>
+                  <XCircle size={18} />
+                  Rechazar planilla
+                </Button>
+              </>
+            )}
+            {canEdit && planilla.status === 'Aprobada' && (
+              <>
+                <Button onClick={() => handleChangeStatus(planilla.id, "Pendiente de envío")} disabled={saving}>
+                  <XCircle size={18} />
+                  Restaurar a pendiente de envío
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
         <div className="section">
           <div className="section-header-detail">
-            <h3 className="section-title">Jugadores: {planilla.jugadores.length}</h3>
-            <h3 className="section-title">Máximo de jugadores: {limit}</h3>
+            <h3 className="section-title">Jugadores: {planilla.jugadores.length} de {limit} (máximo por categoría)</h3>
           </div>
 
           <Table>
@@ -278,7 +344,7 @@ export const PlanillaDetailPage = () => {
 
         <div className="section">
           <div className="section-header">
-            <h3 className="section-title">Técnicos: {tecnicos.length}</h3>
+            <h3 className="section-title">Técnicos: {tecnicos.length} de 1 (máximo permitido)</h3>
           </div>
 
           <Table>
@@ -317,46 +383,7 @@ export const PlanillaDetailPage = () => {
 
         <div className="section">
           <div className="section-header">
-            <h3 className="section-title">Medicos: {medicos.length}</h3>
-          </div>
-
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHeadCell>DNI</TableHeadCell>
-                <TableHeadCell>Nombre</TableHeadCell>
-                <TableHeadCell>Apellido</TableHeadCell>
-                <TableHeadCell>Teléfono</TableHeadCell>
-                {canEdit && <TableHeadCell>Acciones</TableHeadCell>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {medicos.map((medico) => (
-                <TableRow key={medico.id}>
-                  <TableCell>{medico.dni}</TableCell>
-                  <TableCell>{medico.name}</TableCell>
-                  <TableCell>{medico.second_name}</TableCell>
-                  <TableCell>{medico.phone_number}</TableCell>
-                  {canEdit && (
-                    <TableCell>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        onClick={() => handleDeletePersona(medico.id)}
-                      >
-                        <Trash2 size={16} />
-                      </Button>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-
-        <div className="section">
-          <div className="section-header">
-            <h3 className="section-title">Delegados: {delegados.length}</h3>
+            <h3 className="section-title">Delegados: {delegados.length} de 1 (máximo permitido)</h3>
           </div>
 
           <Table>
@@ -392,6 +419,45 @@ export const PlanillaDetailPage = () => {
             </TableBody>
           </Table>
           </div>
+
+          <div className="section">
+          <div className="section-header">
+            <h3 className="section-title">Medicos: {medicos.length} de 1 (máximo permitido)</h3>
+          </div>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHeadCell>DNI</TableHeadCell>
+                <TableHeadCell>Nombre</TableHeadCell>
+                <TableHeadCell>Apellido</TableHeadCell>
+                <TableHeadCell>Teléfono</TableHeadCell>
+                {canEdit && <TableHeadCell>Acciones</TableHeadCell>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {medicos.map((medico) => (
+                <TableRow key={medico.id}>
+                  <TableCell>{medico.dni}</TableCell>
+                  <TableCell>{medico.name}</TableCell>
+                  <TableCell>{medico.second_name}</TableCell>
+                  <TableCell>{medico.phone_number}</TableCell>
+                  {canEdit && (
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => handleDeletePersona(medico.id)}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
 
           {canEdit && (
             <div className="add-form">

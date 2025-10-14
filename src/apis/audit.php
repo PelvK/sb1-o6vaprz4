@@ -1,40 +1,46 @@
 <?php
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, OPTIONS');
+header('Access-Control-Allow-Headers: Authorization, Content-Type');
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit();
+}
 require_once 'conexion.php';
 
 $conn = getDBConnection();
-$method = $_SERVER['REQUEST_METHOD'];
-$userId = getAuthUserId();
 
-if ($method !== 'GET') {
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     sendError("Method not allowed", 405);
 }
 
 $planillaId = $_GET['planilla_id'] ?? null;
-
 if (!$planillaId) {
-    sendError("Planilla ID is required", 400);
+    sendError("planilla_id is required", 400);
 }
 
 try {
     $stmt = $conn->prepare("
         SELECT
-            a.*,
-            p.full_name as user_name
-        FROM planilla_audit_log a
-        LEFT JOIN profiles p ON a.user_id = p.id
+            a.id,
+            a.planilla_id,
+            a.user_id,
+            a.action,
+            a.entity_type,
+            a.entity_id,
+            a.details,
+            a.created_at,
+            a.username
+        FROM audit_log a
         WHERE a.planilla_id = :planilla_id
         ORDER BY a.created_at DESC
     ");
-
     $stmt->execute(['planilla_id' => $planillaId]);
-    $logs = $stmt->fetchAll();
+    $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($logs as &$log) {
-        if ($log['old_value']) {
-            $log['old_value'] = json_decode($log['old_value'], true);
-        }
-        if ($log['new_value']) {
-            $log['new_value'] = json_decode($log['new_value'], true);
+        if ($log['details']) {
+            $log['details'] = json_decode($log['details'], true);
         }
     }
 

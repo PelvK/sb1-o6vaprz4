@@ -173,7 +173,7 @@ export const AdminPage = () => {
       setSaving(false);
     }
   };
-  /** Migrated (@todo check when planilla details is working) */
+  /** Migrated! */
   const handleChangeStatus = async (
     planillaId: string,
     newStatus: PlanillaStatus

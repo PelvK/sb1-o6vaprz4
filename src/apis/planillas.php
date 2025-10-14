@@ -1,13 +1,22 @@
 <?php
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Authorization, Content-Type');
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit();
+}
+
 require_once 'conexion.php';
+require_once 'audit_helper.php';
 
 $conn = getDBConnection();
 $method = $_SERVER['REQUEST_METHOD'];
 $userId = getAuthUserId();
 
-switch($method) {
+switch ($method) {
     case 'GET':
-        handleGet($conn, $userId);
+        handleGet($conn);
         break;
     case 'POST':
         handlePost($conn, $userId);
@@ -22,288 +31,263 @@ switch($method) {
         sendError("Method not allowed", 405);
 }
 
-function handleGet($conn, $userId) {
+function handleGet($conn)
+{
     $id = $_GET['id'] ?? null;
 
     if ($id) {
         $stmt = $conn->prepare("
-            SELECT p.*, pr.email as creator_email, pr.full_name as creator_name, t.name as team_name
+            SELECT p.id, p.team_id, p.status, p.created_at, p.updated_at,
+                   t.nombre AS team_nombre, t.category AS team_category, t.created_at AS team_created_at
             FROM planillas p
-            LEFT JOIN profiles pr ON p.created_by = pr.id
             LEFT JOIN teams t ON p.team_id = t.id
             WHERE p.id = :id
         ");
         $stmt->execute(['id' => $id]);
-        $planilla = $stmt->fetch();
+        $planilla = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$planilla) {
             sendError("Planilla not found", 404);
         }
 
-        $stmt = $conn->prepare("
-            SELECT * FROM planilla_detalle
-            WHERE planilla_id = :planilla_id
-            ORDER BY fecha, trabajador
+        $jugStmt = $conn->prepare("
+            SELECT id, planilla_id, dni, number, name, second_name, created_at
+            FROM jugadores WHERE planilla_id = :planilla_id
         ");
-        $stmt->execute(['planilla_id' => $id]);
-        $detalles = $stmt->fetchAll();
+        $jugStmt->execute(['planilla_id' => $id]);
+        $jugadores = $jugStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $planilla['detalles'] = $detalles;
-        sendResponse($planilla);
+        $persStmt = $conn->prepare("
+            SELECT id, planilla_id, dni, name, second_name, phone_number, charge, created_at
+            FROM personas WHERE planilla_id = :planilla_id
+        ");
+        $persStmt->execute(['planilla_id' => $id]);
+        $personas = $persStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $usersStmt = $conn->prepare("
+            SELECT up.id AS user_planilla_id, p.id, p.username, p.is_admin, p.created_at
+            FROM user_planilla up
+            JOIN profiles p ON up.user_id = p.id
+            WHERE up.planilla_id = :planilla_id
+        ");
+        $usersStmt->execute(['planilla_id' => $id]);
+        $assigned_users = $usersStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $team = [
+            'id' => $planilla['team_id'],
+            'nombre' => $planilla['team_nombre'],
+            'category' => intval($planilla['team_category']),
+            'created_at' => $planilla['team_created_at'],
+        ];
+
+        $result = [
+            'id' => $planilla['id'],
+            'team_id' => $planilla['team_id'],
+            'status' => $planilla['status'],
+            'created_at' => $planilla['created_at'],
+            'updated_at' => $planilla['updated_at'],
+            'team' => $team,
+            'jugadores' => $jugadores,
+            'personas' => $personas,
+            'assigned_users' => $assigned_users
+        ];
+
+        sendResponse($result);
     } else {
-        $stmt = $conn->prepare("
-            SELECT pr.role FROM profiles WHERE id = :user_id
+        $stmt = $conn->query("
+            SELECT p.id, p.team_id, p.status, p.created_at, p.updated_at,
+                   t.nombre AS team_nombre, t.category AS team_category
+            FROM planillas p
+            LEFT JOIN teams t ON p.team_id = t.id
+            ORDER BY p.created_at DESC
         ");
-        $stmt->execute(['user_id' => $userId]);
-        $profile = $stmt->fetch();
 
-        if ($profile && $profile['role'] === 'admin') {
-            $stmt = $conn->prepare("
-                SELECT p.*, pr.email as creator_email, pr.full_name as creator_name, t.name as team_name
-                FROM planillas p
-                LEFT JOIN profiles pr ON p.created_by = pr.id
-                LEFT JOIN teams t ON p.team_id = t.id
-                ORDER BY p.created_at DESC
-            ");
-            $stmt->execute();
-        } else {
-            $stmt = $conn->prepare("
-                SELECT p.*, pr.email as creator_email, pr.full_name as creator_name, t.name as team_name
-                FROM planillas p
-                LEFT JOIN profiles pr ON p.created_by = pr.id
-                LEFT JOIN teams t ON p.team_id = t.id
-                WHERE p.created_by = :user_id OR p.team_id IN (
-                    SELECT team_id FROM profiles WHERE id = :user_id
-                )
-                ORDER BY p.created_at DESC
-            ");
-            $stmt->execute(['user_id' => $userId]);
+        $planillas = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $planillas[] = [
+                'id' => intval($row['id']),
+                'team_id' => $row['team_id'],
+                'status' => $row['status'],
+                'created_at' => $row['created_at'],
+                'updated_at' => $row['updated_at'],
+                'team' => [
+                    'id' => $row['team_id'],
+                    'nombre' => $row['team_nombre'],
+                    'category' => intval($row['team_category'])
+                ]
+            ];
         }
-
-        $planillas = $stmt->fetchAll();
         sendResponse($planillas);
     }
 }
 
-function handlePost($conn, $userId) {
+function handlePost($conn, $userId)
+{
     $data = json_decode(file_get_contents('php://input'), true);
 
-    if (!$data) {
-        sendError("Invalid JSON data", 400);
+    if (!$data || empty($data['team_id'])) {
+        sendError("Field 'team_id' is required", 400);
+    }
+    if (!isset($data['user_ids']) || !is_array($data['user_ids']) || count($data['user_ids']) === 0) {
+        sendError("Field 'user_ids' must be a non-empty array", 400);
     }
 
-    $required = ['numero_planilla', 'fecha_inicio', 'fecha_fin', 'empresa', 'proyecto'];
-    foreach ($required as $field) {
-        if (!isset($data[$field]) || empty($data[$field])) {
-            sendError("Field '$field' is required", 400);
-        }
-    }
-
-    $id = uniqid('pln_', true);
+    $status = $data['status'] ?? 'Pendiente de envío';
+    $userIds = array_values(array_unique($data['user_ids']));
 
     try {
         $conn->beginTransaction();
 
         $stmt = $conn->prepare("
-            INSERT INTO planillas (
-                id, numero_planilla, fecha_inicio, fecha_fin, estado,
-                empresa, proyecto, observaciones, total_horas, created_by, team_id
-            ) VALUES (
-                :id, :numero_planilla, :fecha_inicio, :fecha_fin, :estado,
-                :empresa, :proyecto, :observaciones, :total_horas, :created_by, :team_id
-            )
+            INSERT INTO planillas (team_id, status, created_at, updated_at)
+            VALUES (:team_id, :status, NOW(), NOW())
         ");
-
         $stmt->execute([
-            'id' => $id,
-            'numero_planilla' => $data['numero_planilla'],
-            'fecha_inicio' => $data['fecha_inicio'],
-            'fecha_fin' => $data['fecha_fin'],
-            'estado' => $data['estado'] ?? 'borrador',
-            'empresa' => $data['empresa'],
-            'proyecto' => $data['proyecto'],
-            'observaciones' => $data['observaciones'] ?? null,
-            'total_horas' => $data['total_horas'] ?? 0,
-            'created_by' => $userId,
-            'team_id' => $data['team_id'] ?? null
+            'team_id' => $data['team_id'],
+            'status' => $status
         ]);
 
-        if (isset($data['detalles']) && is_array($data['detalles'])) {
-            foreach ($data['detalles'] as $detalle) {
-                $detalleId = uniqid('det_', true);
-                $stmtDetalle = $conn->prepare("
-                    INSERT INTO planilla_detalle (
-                        id, planilla_id, fecha, trabajador, dni, cargo,
-                        horas_trabajadas, tarifa_hora
-                    ) VALUES (
-                        :id, :planilla_id, :fecha, :trabajador, :dni, :cargo,
-                        :horas_trabajadas, :tarifa_hora
-                    )
-                ");
-                $stmtDetalle->execute([
-                    'id' => $detalleId,
-                    'planilla_id' => $id,
-                    'fecha' => $detalle['fecha'],
-                    'trabajador' => $detalle['trabajador'],
-                    'dni' => $detalle['dni'] ?? null,
-                    'cargo' => $detalle['cargo'] ?? null,
-                    'horas_trabajadas' => $detalle['horas_trabajadas'] ?? 0,
-                    'tarifa_hora' => $detalle['tarifa_hora'] ?? 0
-                ]);
-            }
+        // Obtener el ID autogenerado
+        $planillaId = $conn->lastInsertId();
+
+        // Asignar usuarios a la planilla
+        $assignStmt = $conn->prepare("
+            INSERT INTO user_planilla (user_id, planilla_id, created_at)
+            VALUES (:user_id, :planilla_id, NOW())
+        ");
+        foreach ($userIds as $uid) {
+            $assignStmt->execute([
+                'user_id' => $uid,
+                'planilla_id' => $planillaId
+            ]);
         }
 
-        $auditId = uniqid('aud_', true);
-        $stmtAudit = $conn->prepare("
-            INSERT INTO planilla_audit_log (id, planilla_id, action, user_id, user_email, new_value)
-            SELECT :id, :planilla_id, 'created', :user_id, email, :new_value
-            FROM profiles WHERE id = :user_id
-        ");
-        $stmtAudit->execute([
-            'id' => $auditId,
-            'planilla_id' => $id,
-            'user_id' => $userId,
-            'new_value' => json_encode($data)
-        ]);
+        logAudit(
+            $conn,
+            $planillaId,
+            $userId,
+            'planilla_created',
+            'planilla',
+            $planillaId,
+            [
+                'team_id' => $data['team_id'],
+                'user_ids' => $userIds,
+                'status' => $status
+            ]
+        );
 
         $conn->commit();
-
-        sendResponse(['id' => $id, 'message' => 'Planilla created successfully'], 201);
+        sendResponse([
+            'id' => intval($planillaId),
+            'assigned_count' => count($userIds),
+            'message' => 'Planilla creada y asignada correctamente'
+        ], 201);
     } catch (Exception $e) {
         $conn->rollBack();
         sendError("Error creating planilla: " . $e->getMessage(), 500);
     }
 }
 
-function handlePut($conn, $userId) {
+function handlePut($conn, $userId)
+{
     $data = json_decode(file_get_contents('php://input'), true);
-
-    if (!$data || !isset($data['id'])) {
-        sendError("Planilla ID is required", 400);
+    if (!$data || empty($data['id'])) {
+        sendError("Field 'id' is required", 400);
     }
-
-    $id = $data['id'];
 
     $stmt = $conn->prepare("SELECT * FROM planillas WHERE id = :id");
-    $stmt->execute(['id' => $id]);
-    $oldPlanilla = $stmt->fetch();
+    $stmt->execute(['id' => $data['id']]);
+    $oldPlanilla = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$oldPlanilla) {
-        sendError("Planilla not found", 404);
+    $fields = [];
+    $params = ['id' => $data['id']];
+
+    if (isset($data['status'])) {
+        $fields[] = "status = :status";
+        $params['status'] = $data['status'];
     }
 
+    if (isset($data['team_id'])) {
+        $fields[] = "team_id = :team_id";
+        $params['team_id'] = $data['team_id'];
+    }
+
+    if (empty($fields)) {
+        sendError("No fields to update", 400);
+    }
+
+    $sql = "UPDATE planillas SET " . implode(', ', $fields) . ", updated_at = NOW() WHERE id = :id";
+
     try {
-        $conn->beginTransaction();
+        $stmt = $conn->prepare($sql);
+        $stmt->execute($params);
 
-        $updates = [];
-        $params = ['id' => $id];
-
-        $allowedFields = [
-            'numero_planilla', 'fecha_inicio', 'fecha_fin', 'estado',
-            'empresa', 'proyecto', 'observaciones', 'total_horas', 'team_id'
-        ];
-
-        foreach ($allowedFields as $field) {
-            if (isset($data[$field])) {
-                $updates[] = "$field = :$field";
-                $params[$field] = $data[$field];
-            }
+        if (isset($data['status']) && $oldPlanilla && $data['status'] !== $oldPlanilla['status']) {
+            logAudit(
+                $conn,
+                $data['id'],
+                $userId,
+                'status_changed',
+                'planilla',
+                $data['id'],
+                [
+                    'old_status' => $oldPlanilla['status'],
+                    'new_status' => $data['status']
+                ]
+            );
+        } elseif ($oldPlanilla) {
+            logAudit(
+                $conn,
+                $data['id'],
+                $userId,
+                'planilla_updated',
+                'planilla',
+                $data['id'],
+                [
+                    'old' => $oldPlanilla,
+                    'new' => $data
+                ]
+            );
         }
 
-        if (!empty($updates)) {
-            $sql = "UPDATE planillas SET " . implode(', ', $updates) . " WHERE id = :id";
-            $stmt = $conn->prepare($sql);
-            $stmt->execute($params);
-        }
-
-        if (isset($data['detalles']) && is_array($data['detalles'])) {
-            $stmt = $conn->prepare("DELETE FROM planilla_detalle WHERE planilla_id = :planilla_id");
-            $stmt->execute(['planilla_id' => $id]);
-
-            foreach ($data['detalles'] as $detalle) {
-                $detalleId = $detalle['id'] ?? uniqid('det_', true);
-                $stmtDetalle = $conn->prepare("
-                    INSERT INTO planilla_detalle (
-                        id, planilla_id, fecha, trabajador, dni, cargo,
-                        horas_trabajadas, tarifa_hora
-                    ) VALUES (
-                        :id, :planilla_id, :fecha, :trabajador, :dni, :cargo,
-                        :horas_trabajadas, :tarifa_hora
-                    )
-                ");
-                $stmtDetalle->execute([
-                    'id' => $detalleId,
-                    'planilla_id' => $id,
-                    'fecha' => $detalle['fecha'],
-                    'trabajador' => $detalle['trabajador'],
-                    'dni' => $detalle['dni'] ?? null,
-                    'cargo' => $detalle['cargo'] ?? null,
-                    'horas_trabajadas' => $detalle['horas_trabajadas'] ?? 0,
-                    'tarifa_hora' => $detalle['tarifa_hora'] ?? 0
-                ]);
-            }
-        }
-
-        $auditId = uniqid('aud_', true);
-        $stmtAudit = $conn->prepare("
-            INSERT INTO planilla_audit_log (id, planilla_id, action, user_id, user_email, old_value, new_value)
-            SELECT :id, :planilla_id, 'updated', :user_id, email, :old_value, :new_value
-            FROM profiles WHERE id = :user_id
-        ");
-        $stmtAudit->execute([
-            'id' => $auditId,
-            'planilla_id' => $id,
-            'user_id' => $userId,
-            'old_value' => json_encode($oldPlanilla),
-            'new_value' => json_encode($data)
-        ]);
-
-        $conn->commit();
-
-        sendResponse(['message' => 'Planilla updated successfully']);
+        sendResponse(['message' => 'Planilla actualizada correctamente']);
     } catch (Exception $e) {
-        $conn->rollBack();
         sendError("Error updating planilla: " . $e->getMessage(), 500);
     }
 }
 
-function handleDelete($conn, $userId) {
+function handleDelete($conn, $userId)
+{
     $id = $_GET['id'] ?? null;
-
-    if (!$id) {
-        sendError("Planilla ID is required", 400);
-    }
+    if (!$id) sendError("Planilla ID is required", 400);
 
     $stmt = $conn->prepare("SELECT * FROM planillas WHERE id = :id");
     $stmt->execute(['id' => $id]);
-    $planilla = $stmt->fetch();
-
-    if (!$planilla) {
-        sendError("Planilla not found", 404);
-    }
+    $planilla = $stmt->fetch(PDO::FETCH_ASSOC);
 
     try {
         $conn->beginTransaction();
 
-        $auditId = uniqid('aud_', true);
-        $stmtAudit = $conn->prepare("
-            INSERT INTO planilla_audit_log (id, planilla_id, action, user_id, user_email, old_value)
-            SELECT :id, :planilla_id, 'deleted', :user_id, email, :old_value
-            FROM profiles WHERE id = :user_id
-        ");
-        $stmtAudit->execute([
-            'id' => $auditId,
-            'planilla_id' => $id,
-            'user_id' => $userId,
-            'old_value' => json_encode($planilla)
-        ]);
+        $conn->prepare("DELETE FROM jugadores WHERE planilla_id = :id")->execute(['id' => $id]);
+        $conn->prepare("DELETE FROM personas WHERE planilla_id = :id")->execute(['id' => $id]);
+        $conn->prepare("DELETE FROM user_planilla WHERE planilla_id = :id")->execute(['id' => $id]);
+        $conn->prepare("DELETE FROM planillas WHERE id = :id")->execute(['id' => $id]);
 
-        $stmt = $conn->prepare("DELETE FROM planillas WHERE id = :id");
-        $stmt->execute(['id' => $id]);
+        // Audit log: eliminación
+        if ($planilla) {
+            logAudit(
+                $conn,
+                $id,
+                $userId,
+                'planilla_deleted',
+                'planilla',
+                $id,
+                $planilla
+            );
+        }
 
         $conn->commit();
-
-        sendResponse(['message' => 'Planilla deleted successfully']);
+        sendResponse(['message' => 'Planilla eliminada correctamente']);
     } catch (Exception $e) {
         $conn->rollBack();
         sendError("Error deleting planilla: " . $e->getMessage(), 500);

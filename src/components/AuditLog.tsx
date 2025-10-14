@@ -1,6 +1,6 @@
-import { AuditLog as AuditLogType } from '../types';
-import { Clock, UserPlus, UserMinus, FileEdit } from 'lucide-react';
-import './AuditLog.css';
+import { AuditLog as AuditLogType } from "../types";
+import { Clock, FileEdit, FilePlus, FileMinus, UserPlus, UserMinus } from "lucide-react";
+import "./AuditLog.css";
 
 interface AuditLogProps {
   auditLogs: AuditLogType[];
@@ -8,31 +8,45 @@ interface AuditLogProps {
 }
 
 const getActionText = (log: AuditLogType): string => {
+  console.log("[DEBUG] AUDIT LOG ENTRY:", log);
   switch (log.action) {
-    case 'jugador_added':
-      return `agregó al jugador ${log.details.name} (${log.details.dni})`;
-    case 'jugador_deleted':
-      return `eliminó al jugador ${log.details.name} (${log.details.dni})`;
-    case 'persona_added':
-      return `agregó a ${log.details.charge} ${log.details.name} (${log.details.dni})`;
-    case 'persona_deleted':
-      return `eliminó a ${log.details.charge} ${log.details.name} (${log.details.dni})`;
-    case 'status_changed':
+    case "jugador_added":
+      return `agregó al jugador #${log.details.number} -  ${log.details.name} ${log.details.second_name} (DNI: ${log.details.dni})`;
+    case "jugador_deleted":
+      return `eliminó al jugador #${log.details.number} - ${log.details.name} ${log.details.second_name} (DNI: ${log.details.dni})`;
+    case "persona_added":
+      return `agregó a #${log.details.number} - ${log.details.charge} ${log.details.name} ${log.details.second_name} (DNI: ${log.details.dni})`;
+    case "persona_deleted":
+      return `eliminó a #${log.details.number} - ${log.details.charge} ${log.details.name} ${log.details.second_name} (DNI: ${log.details.dni})`;
+    case "status_changed":
       return `cambió el estado de "${log.details.old_status}" a "${log.details.new_status}"`;
+    case "planilla_created":
+      return `creó la planilla`;
+    case "planilla_updated":
+      return `editó la planilla`;
+    case "planilla_deleted":
+      return `eliminó la planilla`;
     default:
-      return 'realizó una acción';
+      return "realizó una acción";
   }
 };
 
 const getActionIcon = (action: string) => {
   switch (action) {
-    case 'jugador_added':
-    case 'persona_added':
+    case "jugador_added":
+    case "persona_added":
       return <UserPlus size={18} className="audit-icon audit-icon-add" />;
-    case 'jugador_deleted':
-    case 'persona_deleted':
+    case "planilla_created":
+      return <FilePlus size={18} className="audit-icon audit-icon-add" />;
+    case "jugador_deleted":
+    case "persona_deleted":
       return <UserMinus size={18} className="audit-icon audit-icon-delete" />;
-    case 'status_changed':
+    case "planilla_deleted":
+      return <FileMinus size={18} className="audit-icon audit-icon-delete" />;
+    case "jugador_updated":
+    case "persona_updated":
+    case "planilla_updated":
+    case "status_changed":
       return <FileEdit size={18} className="audit-icon audit-icon-edit" />;
     default:
       return <Clock size={18} className="audit-icon" />;
@@ -41,12 +55,12 @@ const getActionIcon = (action: string) => {
 
 const formatDate = (dateString: string): string => {
   const date = new Date(dateString);
-  return new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+  return new Intl.DateTimeFormat("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(date);
 };
 
@@ -82,8 +96,8 @@ export const AuditLog = ({ auditLogs, loading }: AuditLogProps) => {
               <div className="audit-log-details">
                 <div className="audit-log-text">
                   <span className="audit-log-user">
-                    {log.username || 'Usuario desconocido'}
-                  </span>{' '}
+                    {log.username || "Usuario desconocido"}
+                  </span>{" "}
                   {getActionText(log)}
                 </div>
                 <div className="audit-log-time">

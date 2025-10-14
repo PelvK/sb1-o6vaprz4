@@ -40,28 +40,11 @@ function handleGet($conn, $userId) {
         if (!$team) {
             sendError("Team not found", 404);
         }
-
-        // Miembros (si los querés agregar)
-        $stmt = $conn->prepare("
-            SELECT id, username, email, is_admin, created_at
-            FROM profiles
-            WHERE team_id = :team_id
-            ORDER BY username
-        ");
-        $stmt->execute(['team_id' => $id]);
-        $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        // Forzar bool en is_admin
-        foreach ($members as &$m) { $m['is_admin'] = (bool)$m['is_admin']; }
-
-        $team['members'] = $members;
-
         sendResponse($team);
     } else {
         $stmt = $conn->prepare("
-            SELECT t.id, t.nombre, t.category, t.created_at, COUNT(p.id) as member_count
+            SELECT t.id, t.nombre, t.category, t.created_at
             FROM teams t
-            LEFT JOIN profiles p ON t.id = p.team_id
-            GROUP BY t.id
             ORDER BY t.created_at DESC
         ");
         $stmt->execute();
@@ -78,7 +61,6 @@ function handlePost($conn, $userId) {
         sendError("Invalid JSON data", 400);
     }
 
-    // Solo admin puede crear equipos
     $stmt = $conn->prepare("SELECT is_admin FROM profiles WHERE id = :user_id");
     $stmt->execute(['user_id' => $userId]);
     $userProfile = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -121,7 +103,6 @@ function handlePut($conn, $userId) {
         sendError("Team ID is required", 400);
     }
 
-    // Solo admin puede modificar equipos
     $stmt = $conn->prepare("SELECT is_admin FROM profiles WHERE id = :user_id");
     $stmt->execute(['user_id' => $userId]);
     $userProfile = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -170,7 +151,6 @@ function handleDelete($conn, $userId) {
         sendError("Team ID is required", 400);
     }
 
-    // Solo admin puede borrar equipos
     $stmt = $conn->prepare("SELECT is_admin FROM profiles WHERE id = :user_id");
     $stmt->execute(['user_id' => $userId]);
     $userProfile = $stmt->fetch(PDO::FETCH_ASSOC);
