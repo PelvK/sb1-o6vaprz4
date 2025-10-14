@@ -30,10 +30,12 @@ import {
   XCircle,
   Pencil,
   Trash2,
+  Upload,
 } from "lucide-react";
 import "./AdminPage.css";
 import { PdfDownloader } from "../components/PdfDownloader";
 import { createTeam } from "../hooks/useTeams";
+import { BulkTeamUpload } from "../components/BulkTeamUpload";
 
 export const AdminPage = () => {
   const navigate = useNavigate();
@@ -50,6 +52,7 @@ export const AdminPage = () => {
   const [showNewPlanillaForm, setShowNewPlanillaForm] = useState(false);
   const [showNewTeamForm, setShowNewTeamForm] = useState(false);
   const [showNewUserForm, setShowNewUserForm] = useState(false);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [newTeamName, setNewTeamName] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Category | "">("");
@@ -327,14 +330,34 @@ export const AdminPage = () => {
           <div className="admin-section">
             <div className="section-header">
               <h3 className="section-title">Equipos</h3>
-              <Button
-                size="sm"
-                onClick={() => setShowNewTeamForm(!showNewTeamForm)}
-              >
-                <Plus size={18} />
-                Nuevo Equipo
-              </Button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowBulkUpload(true)}
+                >
+                  <Upload size={18} />
+                  Carga Masiva
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setShowNewTeamForm(!showNewTeamForm)}
+                >
+                  <Plus size={18} />
+                  Nuevo Equipo
+                </Button>
+              </div>
             </div>
+
+            {showBulkUpload && (
+              <BulkTeamUpload
+                onClose={() => setShowBulkUpload(false)}
+                onSuccess={() => {
+                  refetchTeams();
+                  setShowBulkUpload(false);
+                }}
+              />
+            )}
 
             {showNewTeamForm && (
               <form onSubmit={handleCreateTeam} className="admin-form">

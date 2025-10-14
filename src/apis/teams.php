@@ -69,6 +69,13 @@ function handlePost($conn, $userId) {
         sendError("Unauthorized", 403);
     }
 
+    $isBulk = isset($_GET['bulk']) && $_GET['bulk'] === 'true';
+
+    if ($isBulk) {
+        handleBulkCreate($conn, $data);
+        return;
+    }
+
     if (!isset($data['nombre']) || empty($data['nombre'])) {
         sendError("Field 'nombre' is required", 400);
     }
@@ -93,6 +100,79 @@ function handlePost($conn, $userId) {
         sendResponse(['id' => $id, 'message' => 'Team created successfully'], 201);
     } catch (Exception $e) {
         sendError("Error creating team: " . $e->getMessage(), 500);
+    }
+}
+
+function handleBulkCreate($conn, $data) {
+    if (!isset($data['teams']) || !is_array($data['teams'])) {
+        sendError("Field 'teams' is required and must be an array", 400);
+    }
+
+    $teams = $data['teams'];
+    $created = 0;
+    $failed = 0;
+    $errors = [];
+
+    try {
+        $conn->beginTransaction();
+
+        $stmt = $conn->prepare("
+            INSERT INTO teams (id, nombre, category, created_at)
+            VALUES (:id, :nombre, :category, NOW())
+        ");
+
+        foreach ($teams as $team) {
+            try {
+                if (!isset($team['nombre']) || empty($team['nombre'])) {
+                    $failed++;
+                    $errors[] = [
+                        'nombre' => $team['nombre'] ?? 'N/A',
+                        'category' => $team['category'] ?? 'N/A',
+                        'error' => 'El campo nombre es obligatorio'
+                    ];
+                    continue;
+                }
+
+                if (!isset($team['category']) || !is_numeric($team['category'])) {
+                    $failed++;
+                    $errors[] = [
+                        'nombre' => $team['nombre'],
+                        'category' => $team['category'] ?? 'N/A',
+                        'error' => 'El campo categoría es obligatorio y debe ser numérico'
+                    ];
+                    continue;
+                }
+
+                $id = uniqid('team_', true);
+
+                $stmt->execute([
+                    'id' => $id,
+                    'nombre' => $team['nombre'],
+                    'category' => $team['category']
+                ]);
+
+                $created++;
+            } catch (Exception $e) {
+                $failed++;
+                $errors[] = [
+                    'nombre' => $team['nombre'] ?? 'N/A',
+                    'category' => $team['category'] ?? 'N/A',
+                    'error' => 'Error al insertar: ' . $e->getMessage()
+                ];
+            }
+        }
+
+        $conn->commit();
+
+        sendResponse([
+            'success' => true,
+            'created' => $created,
+            'failed' => $failed,
+            'errors' => $errors
+        ], 201);
+    } catch (Exception $e) {
+        $conn->rollBack();
+        sendError("Error en carga masiva: " . $e->getMessage(), 500);
     }
 }
 

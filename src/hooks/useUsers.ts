@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../libs/supabase';
 
 export interface User {
@@ -25,7 +25,7 @@ export const useUsers = () => {
 
   const baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`;
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       const headers = await getAuthHeaders();
@@ -47,14 +47,12 @@ export const useUsers = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [baseUrl]);
 
   useEffect(() => {
     fetchUsers();
-    // eslint-disable-next-line
-  }, []);
+  }, [fetchUsers]);
 
-  // Create a user
   const createUser = async (email: string, password: string, username: string, isAdmin: boolean) => {
     try {
       const headers = await getAuthHeaders();
@@ -80,7 +78,6 @@ export const useUsers = () => {
     }
   };
 
-  // Update a user
   const updateUser = async (userId: string, username: string, isAdmin: boolean) => {
     try {
       const headers = await getAuthHeaders();
@@ -106,7 +103,6 @@ export const useUsers = () => {
     }
   };
 
-  // Delete a user
   const deleteUser = async (userId: string) => {
     try {
       const headers = await getAuthHeaders();
