@@ -119,6 +119,8 @@ function handlePut($conn) {
     }
 
     $username = $data['username'] ?? '';
+    $email = $data['email'] ?? null;
+    $password = $data['password'] ?? null;
     $isAdmin = isset($data['is_admin']) && $data['is_admin'];
 
     if (empty($username)) {
@@ -126,16 +128,34 @@ function handlePut($conn) {
     }
 
     try {
-        $stmt = $conn->prepare("
-            UPDATE profiles
-            SET username = :username, is_admin = :is_admin
-            WHERE id = :id
-        ");
-        $stmt->execute([
+        $updates = ['username = :username', 'is_admin = :is_admin'];
+        $params = [
             'username' => $username,
             'is_admin' => $isAdmin ? 1 : 0,
             'id' => $targetUserId
-        ]);
+        ];
+
+        if ($email !== null && !empty($email)) {
+            $stmt = $conn->prepare("SELECT id FROM profiles WHERE email = :email AND id != :id");
+            $stmt->execute(['email' => $email, 'id' => $targetUserId]);
+            if ($stmt->fetch()) {
+                sendError("Email already in use by another user", 409);
+            }
+            $updates[] = 'email = :email';
+            $params['email'] = $email;
+        }
+
+        if ($password !== null && !empty($password)) {
+            if (strlen($password) < 6) {
+                sendError("Password must be at least 6 characters", 400);
+            }
+            $updates[] = 'password = :password';
+            $params['password'] = password_hash($password, PASSWORD_BCRYPT);
+        }
+
+        $sql = "UPDATE profiles SET " . implode(', ', $updates) . " WHERE id = :id";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute($params);
 
         if ($stmt->rowCount() === 0) {
             sendError("User not found", 404);

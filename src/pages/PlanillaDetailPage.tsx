@@ -19,7 +19,7 @@ export const PlanillaDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const { refetch: refetchPlanillas } = usePlanillas();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { user } = useAuth();
   const { planilla, loading, refetch } = usePlanilla(id!);
   const { auditLogs, loading: auditLoading, refetch: refetchAudit } = useAuditLog(id!);
   const [saving, setSaving] = useState(false);
@@ -39,7 +39,7 @@ export const PlanillaDetailPage = () => {
     charge: 'Técnico',
   });
 
-  const canEdit = planilla?.status === 'Pendiente de envío' || profile?.is_admin;
+  const canEdit = planilla?.status === 'Pendiente de envío' || user?.is_admin;
 
   const limit = categoryLimits.find(item => item.year == planilla?.team?.category)?.limit;
 

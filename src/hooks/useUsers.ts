@@ -77,14 +77,24 @@ export const useUsers = () => {
     }
   };
 
-  const updateUser = async (userId: string, username: string, isAdmin: boolean) => {
+  const updateUser = async (
+    userId: string,
+    username: string,
+    isAdmin: boolean,
+    email?: string,
+    password?: string
+  ) => {
     try {
       const headers = getAuthHeaders();
+
+      const body: Record<string, unknown> = { username, is_admin: isAdmin };
+      if (email) body.email = email;
+      if (password) body.password = password;
 
       const response = await fetch(`${baseUrl}/${userId}`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ username, is_admin: isAdmin }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {

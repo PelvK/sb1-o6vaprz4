@@ -1,0 +1,79 @@
+.instruction-note {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+.warning-text {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background-color: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 0.375rem;
+  color: #92400e;
+  font-size: 0.875rem;
+}
+
+.password-cell {
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  color: #059669;
+}
+
+.result-credentials {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: #f9fafb;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.result-credentials h5 {
+  margin: 0 0 1rem 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.credentials-table-container {
+  max-height: 300px;
+  overflow-y: auto;
+  border-radius: 0.375rem;
+  border: 1px solid #e5e7eb;
+}
+
+.credentials-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.credentials-table thead {
+  background-color: #f3f4f6;
+  position: sticky;
+  top: 0;
+}
+
+.credentials-table th,
+.credentials-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.credentials-table th {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.credentials-table tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+.credentials-table tbody tr:last-child td {
+  border-bottom: none;
+}

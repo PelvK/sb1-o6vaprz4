@@ -5,6 +5,7 @@ export type PersonaCharge = 'Técnico' | 'Delegado' | 'Médico';
 export interface Team {
   id: string;
   nombre: string;
+  shortname?: string | null;
   category: Category;
   created_at: string;
 }

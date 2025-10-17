@@ -33,7 +33,7 @@ function handleGet($conn, $userId) {
     $id = $_GET['id'] ?? null;
 
     if ($id) {
-        $stmt = $conn->prepare("SELECT id, nombre, category, created_at FROM teams WHERE id = :id");
+        $stmt = $conn->prepare("SELECT id, nombre, shortname, category, created_at FROM teams WHERE id = :id");
         $stmt->execute(['id' => $id]);
         $team = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -43,7 +43,7 @@ function handleGet($conn, $userId) {
         sendResponse($team);
     } else {
         $stmt = $conn->prepare("
-            SELECT t.id, t.nombre, t.category, t.created_at
+            SELECT t.id, t.nombre, t.shortname, t.category, t.created_at
             FROM teams t
             ORDER BY t.created_at DESC
         ");
@@ -86,14 +86,17 @@ function handlePost($conn, $userId) {
     $id = uniqid('team_', true);
 
     try {
+        $shortname = isset($data['shortname']) ? $data['shortname'] : null;
+
         $stmt = $conn->prepare("
-            INSERT INTO teams (id, nombre, category, created_at)
-            VALUES (:id, :nombre, :category, NOW())
+            INSERT INTO teams (id, nombre, shortname, category, created_at)
+            VALUES (:id, :nombre, :shortname, :category, NOW())
         ");
 
         $stmt->execute([
             'id' => $id,
             'nombre' => $data['nombre'],
+            'shortname' => $shortname,
             'category' => $data['category']
         ]);
 
@@ -117,8 +120,8 @@ function handleBulkCreate($conn, $data) {
         $conn->beginTransaction();
 
         $stmt = $conn->prepare("
-            INSERT INTO teams (id, nombre, category, created_at)
-            VALUES (:id, :nombre, :category, NOW())
+            INSERT INTO teams (id, nombre, shortname, category, created_at)
+            VALUES (:id, :nombre, :shortname, :category, NOW())
         ");
 
         foreach ($teams as $team) {
@@ -144,10 +147,12 @@ function handleBulkCreate($conn, $data) {
                 }
 
                 $id = uniqid('team_', true);
+                $shortname = isset($team['shortname']) ? $team['shortname'] : null;
 
                 $stmt->execute([
                     'id' => $id,
                     'nombre' => $team['nombre'],
+                    'shortname' => $shortname,
                     'category' => $team['category']
                 ]);
 
@@ -200,6 +205,10 @@ function handlePut($conn, $userId) {
         if (isset($data['nombre'])) {
             $updates[] = "nombre = :nombre";
             $params['nombre'] = $data['nombre'];
+        }
+        if (isset($data['shortname'])) {
+            $updates[] = "shortname = :shortname";
+            $params['shortname'] = $data['shortname'];
         }
         if (isset($data['category'])) {
             $updates[] = "category = :category";

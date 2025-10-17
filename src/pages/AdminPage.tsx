@@ -13,6 +13,7 @@ import { useUsers } from "../hooks/useUsers";
 import { Button } from "../components/base/Button";
 import { FormInput } from "../components/base/FormInput";
 import { Checkbox } from "../components/base/Checkbox";
+import { PasswordInput } from "../components/base/PasswordInput";
 import {
   Table,
   TableHeader,
@@ -36,6 +37,7 @@ import "./AdminPage.css";
 import { PdfDownloader } from "../components/PdfDownloader";
 import { createTeam } from "../hooks/useTeams";
 import { BulkTeamUpload } from "../components/BulkTeamUpload";
+import { BulkPlanillaUpload } from "../components/BulkPlanillaUpload";
 
 export const AdminPage = () => {
   const navigate = useNavigate();
@@ -53,6 +55,7 @@ export const AdminPage = () => {
   const [showNewTeamForm, setShowNewTeamForm] = useState(false);
   const [showNewUserForm, setShowNewUserForm] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [showBulkPlanillaUpload, setShowBulkPlanillaUpload] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [newTeamName, setNewTeamName] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Category | "">("");
@@ -68,6 +71,8 @@ export const AdminPage = () => {
   });
   const [editUser, setEditUser] = useState({
     username: "",
+    email: "",
+    password: "",
     is_admin: false,
   });
   const [saving, setSaving] = useState(false);
@@ -240,6 +245,8 @@ export const AdminPage = () => {
       setEditingUserId(userId);
       setEditUser({
         username: user.username,
+        email: user.email,
+        password: "",
         is_admin: user.is_admin,
       });
     }
@@ -247,8 +254,8 @@ export const AdminPage = () => {
   /** @todo make this in the next migration */
   const handleUpdateUser = async (e: FormEvent) => {
     e.preventDefault();
-    if (!editingUserId || !editUser.username.trim()) {
-      alert("Por favor completa todos los campos");
+    if (!editingUserId || !editUser.username.trim() || !editUser.email.trim()) {
+      alert("Por favor completa todos los campos obligatorios");
       return;
     }
 
@@ -257,12 +264,14 @@ export const AdminPage = () => {
       const result = await updateUser(
         editingUserId,
         editUser.username,
-        editUser.is_admin
+        editUser.is_admin,
+        editUser.email,
+        editUser.password || undefined
       );
 
       if (result.success) {
         setEditingUserId(null);
-        setEditUser({ username: "", is_admin: false });
+        setEditUser({ username: "", email: "", password: "", is_admin: false });
         alert("Usuario actualizado exitosamente");
       } else {
         alert(result.error || "Error al actualizar usuario");
@@ -468,14 +477,36 @@ export const AdminPage = () => {
           <div className="admin-section">
             <div className="section-header">
               <h3 className="section-title">Planillas</h3>
-              <Button
-                size="sm"
-                onClick={() => setShowNewPlanillaForm(!showNewPlanillaForm)}
-              >
-                <Plus size={18} />
-                Nueva Planilla
-              </Button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowBulkPlanillaUpload(true)}
+                >
+                  <Upload size={18} />
+                  Carga Masiva
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setShowNewPlanillaForm(!showNewPlanillaForm)}
+                >
+                  <Plus size={18} />
+                  Nueva Planilla
+                </Button>
+              </div>
             </div>
+
+            {showBulkPlanillaUpload && (
+              <BulkPlanillaUpload
+                onClose={() => setShowBulkPlanillaUpload(false)}
+                onSuccess={() => {
+                  refetchPlanillas();
+                  setShowBulkPlanillaUpload(false);
+                }}
+                teams={teams}
+                existingPlanillas={planillas}
+              />
+            )}
 
             {showNewPlanillaForm && (
               <div className="admin-form-container">
@@ -775,8 +806,7 @@ export const AdminPage = () => {
                   }
                   required
                 />
-                <FormInput
-                  type="password"
+                <PasswordInput
                   placeholder="Contraseña"
                   value={newUser.password}
                   onChange={(e) =>
@@ -818,12 +848,28 @@ export const AdminPage = () => {
             {editingUserId && (
               <form onSubmit={handleUpdateUser} className="admin-form">
                 <FormInput
+                  type="email"
+                  placeholder="Correo electrónico"
+                  value={editUser.email}
+                  onChange={(e) =>
+                    setEditUser({ ...editUser, email: e.target.value })
+                  }
+                  required
+                />
+                <FormInput
                   placeholder="Nombre de usuario"
                   value={editUser.username}
                   onChange={(e) =>
                     setEditUser({ ...editUser, username: e.target.value })
                   }
                   required
+                />
+                <PasswordInput
+                  placeholder="Nueva contraseña (dejar vacío para no cambiar)"
+                  value={editUser.password}
+                  onChange={(e) =>
+                    setEditUser({ ...editUser, password: e.target.value })
+                  }
                 />
                 <Checkbox
                   label="Admin"
@@ -842,7 +888,7 @@ export const AdminPage = () => {
                     size="sm"
                     onClick={() => {
                       setEditingUserId(null);
-                      setEditUser({ username: "", is_admin: false });
+                      setEditUser({ username: "", email: "", password: "", is_admin: false });
                     }}
                   >
                     Cancelar

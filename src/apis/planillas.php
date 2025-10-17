@@ -125,6 +125,21 @@ function handlePost($conn, $userId)
 {
     $data = json_decode(file_get_contents('php://input'), true);
 
+    $stmt = $conn->prepare("SELECT is_admin FROM profiles WHERE id = :user_id");
+    $stmt->execute(['user_id' => $userId]);
+    $userProfile = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$userProfile || !$userProfile['is_admin']) {
+        sendError("Unauthorized", 403);
+    }
+
+    $isBulk = isset($_GET['bulk']) && $_GET['bulk'] === 'true';
+
+    if ($isBulk) {
+        handleBulkCreate($conn, $data, $userId);
+        return;
+    }
+
     if (!$data || empty($data['team_id'])) {
         sendError("Field 'team_id' is required", 400);
     }
@@ -147,10 +162,8 @@ function handlePost($conn, $userId)
             'status' => $status
         ]);
 
-        // Obtener el ID autogenerado
         $planillaId = $conn->lastInsertId();
 
-        // Asignar usuarios a la planilla
         $assignStmt = $conn->prepare("
             INSERT INTO user_planilla (user_id, planilla_id, created_at)
             VALUES (:user_id, :planilla_id, NOW())
@@ -185,6 +198,160 @@ function handlePost($conn, $userId)
     } catch (Exception $e) {
         $conn->rollBack();
         sendError("Error creating planilla: " . $e->getMessage(), 500);
+    }
+}
+
+function handleBulkCreate($conn, $data, $userId) {
+    if (!isset($data['planillas']) || !is_array($data['planillas'])) {
+        sendError("Field 'planillas' is required and must be an array", 400);
+    }
+
+    $planillas = $data['planillas'];
+    $created = 0;
+    $failed = 0;
+    $errors = [];
+    $createdPlanillas = [];
+
+    try {
+        $conn->beginTransaction();
+
+        foreach ($planillas as $planilla) {
+            try {
+                if (!isset($planilla['team_id']) || empty($planilla['team_id'])) {
+                    $failed++;
+                    $errors[] = [
+                        'team_id' => $planilla['team_id'] ?? 'N/A',
+                        'error' => 'El campo team_id es obligatorio'
+                    ];
+                    continue;
+                }
+
+                if (!isset($planilla['email']) || empty($planilla['email'])) {
+                    $failed++;
+                    $errors[] = [
+                        'team_id' => $planilla['team_id'],
+                        'error' => 'El campo email es obligatorio'
+                    ];
+                    continue;
+                }
+
+                if (!isset($planilla['password']) || empty($planilla['password'])) {
+                    $failed++;
+                    $errors[] = [
+                        'team_id' => $planilla['team_id'],
+                        'error' => 'El campo password es obligatorio'
+                    ];
+                    continue;
+                }
+
+                if (!isset($planilla['username']) || empty($planilla['username'])) {
+                    $failed++;
+                    $errors[] = [
+                        'team_id' => $planilla['team_id'],
+                        'error' => 'El campo username es obligatorio'
+                    ];
+                    continue;
+                }
+
+                $stmt = $conn->prepare("SELECT id FROM planillas WHERE team_id = :team_id");
+                $stmt->execute(['team_id' => $planilla['team_id']]);
+                if ($stmt->fetch()) {
+                    $failed++;
+                    $errors[] = [
+                        'team_id' => $planilla['team_id'],
+                        'error' => 'El equipo ya tiene una planilla asignada'
+                    ];
+                    continue;
+                }
+
+                $stmt = $conn->prepare("SELECT id FROM profiles WHERE email = :email");
+                $stmt->execute(['email' => $planilla['email']]);
+                if ($stmt->fetch()) {
+                    $failed++;
+                    $errors[] = [
+                        'team_id' => $planilla['team_id'],
+                        'error' => 'El email ya está en uso'
+                    ];
+                    continue;
+                }
+
+                $hashedPassword = password_hash($planilla['password'], PASSWORD_BCRYPT);
+                $newUserId = bin2hex(random_bytes(16));
+
+                $stmt = $conn->prepare("
+                    INSERT INTO profiles (id, email, username, password, is_admin, created_at)
+                    VALUES (:id, :email, :username, :password, 0, NOW())
+                ");
+                $stmt->execute([
+                    'id' => $newUserId,
+                    'email' => $planilla['email'],
+                    'username' => $planilla['username'],
+                    'password' => $hashedPassword
+                ]);
+
+                $stmt = $conn->prepare("
+                    INSERT INTO planillas (team_id, status, created_at, updated_at)
+                    VALUES (:team_id, 'Pendiente de envío', NOW(), NOW())
+                ");
+                $stmt->execute([
+                    'team_id' => $planilla['team_id']
+                ]);
+
+                $planillaId = $conn->lastInsertId();
+
+                $stmt = $conn->prepare("
+                    INSERT INTO user_planilla (user_id, planilla_id, created_at)
+                    VALUES (:user_id, :planilla_id, NOW())
+                ");
+                $stmt->execute([
+                    'user_id' => $newUserId,
+                    'planilla_id' => $planillaId
+                ]);
+
+                logAudit(
+                    $conn,
+                    $planillaId,
+                    $userId,
+                    'planilla_created',
+                    'planilla',
+                    $planillaId,
+                    [
+                        'team_id' => $planilla['team_id'],
+                        'user_id' => $newUserId,
+                        'bulk_create' => true
+                    ]
+                );
+
+                $createdPlanillas[] = [
+                    'team_id' => $planilla['team_id'],
+                    'username' => $planilla['username'],
+                    'email' => $planilla['email'],
+                    'password' => $planilla['password'],
+                    'planilla_id' => intval($planillaId)
+                ];
+
+                $created++;
+            } catch (Exception $e) {
+                $failed++;
+                $errors[] = [
+                    'team_id' => $planilla['team_id'] ?? 'N/A',
+                    'error' => 'Error al insertar: ' . $e->getMessage()
+                ];
+            }
+        }
+
+        $conn->commit();
+
+        sendResponse([
+            'success' => true,
+            'created' => $created,
+            'failed' => $failed,
+            'planillas' => $createdPlanillas,
+            'errors' => $errors
+        ], 201);
+    } catch (Exception $e) {
+        $conn->rollBack();
+        sendError("Error en carga masiva: " . $e->getMessage(), 500);
     }
 }
 
