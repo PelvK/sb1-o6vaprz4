@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../libs/supabase';
 
 export interface User {
   id: string;
@@ -9,11 +8,11 @@ export interface User {
   created_at: string;
 }
 
-const getAuthHeaders = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('session_token');
 
   return {
-    'Authorization': `Bearer ${session?.access_token}`,
+    'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
   };
 };
@@ -23,12 +22,12 @@ export const useUsers = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`;
+  const baseUrl = `${import.meta.env.VITE_API_URL || 'http://localhost/apis'}/manage_users.php`;
 
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const headers = await getAuthHeaders();
+      const headers = getAuthHeaders();
 
       const response = await fetch(baseUrl, { headers });
 
@@ -55,7 +54,7 @@ export const useUsers = () => {
 
   const createUser = async (email: string, password: string, username: string, isAdmin: boolean) => {
     try {
-      const headers = await getAuthHeaders();
+      const headers = getAuthHeaders();
 
       const response = await fetch(baseUrl, {
         method: 'POST',
@@ -80,7 +79,7 @@ export const useUsers = () => {
 
   const updateUser = async (userId: string, username: string, isAdmin: boolean) => {
     try {
-      const headers = await getAuthHeaders();
+      const headers = getAuthHeaders();
 
       const response = await fetch(`${baseUrl}/${userId}`, {
         method: 'PUT',
@@ -105,7 +104,7 @@ export const useUsers = () => {
 
   const deleteUser = async (userId: string) => {
     try {
-      const headers = await getAuthHeaders();
+      const headers = getAuthHeaders();
 
       const response = await fetch(`${baseUrl}/${userId}`, {
         method: 'DELETE',

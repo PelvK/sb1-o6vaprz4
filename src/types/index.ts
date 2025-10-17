@@ -39,11 +39,29 @@ export interface Persona {
   created_at: string;
 }
 
+export interface User {
+  id: string;
+  email: string;
+  username: string;
+  is_admin: boolean;
+  created_at: string;
+}
+
 export interface Profile {
   id: string;
   username: string;
   is_admin: boolean;
   created_at: string;
+}
+
+export interface Session {
+  access_token: string;
+  expires_at: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  session: Session;
 }
 
 export interface UserPlanilla {

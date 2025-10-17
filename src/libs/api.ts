@@ -1,13 +1,11 @@
-import { supabase } from './supabase';
-
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost/apis';
 
 async function getAuthToken(): Promise<string> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) {
+  const token = localStorage.getItem('session_token');
+  if (!token) {
     throw new Error('No authentication token available');
   }
-  return session.access_token;
+  return token;
 }
 
 async function apiRequest<T>(

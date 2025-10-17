@@ -11,7 +11,7 @@ interface LayoutProps {
 
 export const Layout = ({ children }: LayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { profile, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -27,7 +27,7 @@ export const Layout = ({ children }: LayoutProps) => {
     { icon: FileText, label: 'Planillas', path: '/planillas' },
   ];
 
-  if (profile?.is_admin) {
+  if (user?.is_admin) {
     menuItems.push({ icon: Users, label: 'Admin', path: '/admin' });
   }
 
@@ -43,8 +43,8 @@ export const Layout = ({ children }: LayoutProps) => {
           </button>
           <h1 className="header-title">Planillas de Buena Fe</h1>
           <div className="header-actions">
-            <span className="username">{profile?.username}</span>
-            {profile?.is_admin && <span className="admin-badge">Admin</span>}
+            <span className="username">{user?.username}</span>
+            {user?.is_admin && <span className="admin-badge">Admin</span>}
             <Button
               variant="ghost"
               size="sm"
