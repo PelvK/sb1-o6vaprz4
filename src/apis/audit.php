@@ -38,6 +38,7 @@ try {
     $stmt->execute(['planilla_id' => $planillaId]);
     $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // Decodificar details de JSON string a objeto/array para el frontend
     foreach ($logs as &$log) {
         if ($log['details']) {
             $log['details'] = json_decode($log['details'], true);

@@ -11,7 +11,7 @@ require_once 'audit_helper.php';
 
 $conn = getDBConnection();
 $method = $_SERVER['REQUEST_METHOD'];
-$userId = getAuthUserId();
+$userId = getAuthUserId(); // <- importante para logging
 
 switch ($method) {
     case 'GET':

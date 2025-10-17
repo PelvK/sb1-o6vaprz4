@@ -36,6 +36,7 @@ function handleGet($conn)
     $id = $_GET['id'] ?? null;
 
     if ($id) {
+        // 1. Planilla y datos del equipo
         $stmt = $conn->prepare("
             SELECT p.id, p.team_id, p.status, p.created_at, p.updated_at,
                    t.nombre AS team_nombre, t.category AS team_category, t.created_at AS team_created_at
@@ -50,6 +51,7 @@ function handleGet($conn)
             sendError("Planilla not found", 404);
         }
 
+        // 2. Jugadores
         $jugStmt = $conn->prepare("
             SELECT id, planilla_id, dni, number, name, second_name, created_at
             FROM jugadores WHERE planilla_id = :planilla_id
@@ -57,6 +59,7 @@ function handleGet($conn)
         $jugStmt->execute(['planilla_id' => $id]);
         $jugadores = $jugStmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // 3. Personas
         $persStmt = $conn->prepare("
             SELECT id, planilla_id, dni, name, second_name, phone_number, charge, created_at
             FROM personas WHERE planilla_id = :planilla_id
@@ -64,6 +67,7 @@ function handleGet($conn)
         $persStmt->execute(['planilla_id' => $id]);
         $personas = $persStmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // 4. Assigned users (user_planilla + profiles)
         $usersStmt = $conn->prepare("
             SELECT up.id AS user_planilla_id, p.id, p.username, p.is_admin, p.created_at
             FROM user_planilla up
@@ -73,6 +77,7 @@ function handleGet($conn)
         $usersStmt->execute(['planilla_id' => $id]);
         $assigned_users = $usersStmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // 5. Team
         $team = [
             'id' => $planilla['team_id'],
             'nombre' => $planilla['team_nombre'],
@@ -80,6 +85,7 @@ function handleGet($conn)
             'created_at' => $planilla['team_created_at'],
         ];
 
+        // 6. Armar el objeto respuesta
         $result = [
             'id' => $planilla['id'],
             'team_id' => $planilla['team_id'],
@@ -133,11 +139,12 @@ function handlePost($conn, $userId)
     }
 
     $status = $data['status'] ?? 'Pendiente de envío';
-    $userIds = array_values(array_unique($data['user_ids']));
+    $userIds = array_values(array_unique($data['user_ids'])); // evita duplicados
 
     try {
         $conn->beginTransaction();
 
+        // Insert sin pasar el ID, ya que es autoincremental
         $stmt = $conn->prepare("
             INSERT INTO planillas (team_id, status, created_at, updated_at)
             VALUES (:team_id, :status, NOW(), NOW())
@@ -162,6 +169,7 @@ function handlePost($conn, $userId)
             ]);
         }
 
+        // Audit log: nueva planilla
         logAudit(
             $conn,
             $planillaId,
@@ -195,6 +203,7 @@ function handlePut($conn, $userId)
         sendError("Field 'id' is required", 400);
     }
 
+    // Obtener planilla previa para log
     $stmt = $conn->prepare("SELECT * FROM planillas WHERE id = :id");
     $stmt->execute(['id' => $data['id']]);
     $oldPlanilla = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -222,6 +231,7 @@ function handlePut($conn, $userId)
         $stmt = $conn->prepare($sql);
         $stmt->execute($params);
 
+        // Audit log: status_changed o planilla_updated
         if (isset($data['status']) && $oldPlanilla && $data['status'] !== $oldPlanilla['status']) {
             logAudit(
                 $conn,
@@ -261,6 +271,7 @@ function handleDelete($conn, $userId)
     $id = $_GET['id'] ?? null;
     if (!$id) sendError("Planilla ID is required", 400);
 
+    // Traer planilla antes de borrar
     $stmt = $conn->prepare("SELECT * FROM planillas WHERE id = :id");
     $stmt->execute(['id' => $id]);
     $planilla = $stmt->fetch(PDO::FETCH_ASSOC);

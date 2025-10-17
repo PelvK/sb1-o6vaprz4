@@ -176,6 +176,7 @@ export const AdminPage = () => {
       setSaving(false);
     }
   };
+
   /** Migrated! */
   const handleChangeStatus = async (
     planillaId: string,
@@ -196,6 +197,7 @@ export const AdminPage = () => {
       setSaving(false);
     }
   };
+
   /** @todo make this in the next migration */
   const handleCreateUser = async (e: FormEvent) => {
     e.preventDefault();

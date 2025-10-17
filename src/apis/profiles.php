@@ -45,10 +45,12 @@ function handleGet($conn, $userId) {
             sendError("Profile not found", 404);
         }
 
+        // MySQL devuelve is_admin como 0/1, lo forzamos a boolean para el frontend
         $profile['is_admin'] = (bool)$profile['is_admin'];
 
         sendResponse($profile);
     } else {
+        // Solo admin puede ver todos los profiles
         $stmt = $conn->prepare("SELECT is_admin FROM profiles WHERE id = :user_id");
         $stmt->execute(['user_id' => $userId]);
         $userProfile = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -65,6 +67,7 @@ function handleGet($conn, $userId) {
         $stmt->execute();
         $profiles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // Forzar is_admin a boolean en todos los resultados
         foreach ($profiles as &$p) {
             $p['is_admin'] = (bool)$p['is_admin'];
         }
@@ -80,6 +83,7 @@ function handlePost($conn, $userId) {
         sendError("Invalid JSON data", 400);
     }
 
+    // Solo admin puede crear perfiles
     $stmt = $conn->prepare("SELECT is_admin FROM profiles WHERE id = :user_id");
     $stmt->execute(['user_id' => $userId]);
     $userProfile = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -130,6 +134,7 @@ function handlePut($conn, $userId) {
     $stmt->execute(['user_id' => $userId]);
     $userProfile = $stmt->fetch(PDO::FETCH_ASSOC);
 
+    // Solo admin puede modificar cualquier perfil; el usuario puede modificar el suyo
     if ($id !== $userId && (!$userProfile || !$userProfile['is_admin'])) {
         sendError("Unauthorized", 403);
     }
@@ -140,6 +145,7 @@ function handlePut($conn, $userId) {
 
         $allowedFields = ['username', 'email', 'is_admin'];
 
+        // Si no sos admin, solo podés modificar tu propio username y email
         if (!$userProfile['is_admin']) {
             $allowedFields = ['username', 'email'];
         }
@@ -147,6 +153,7 @@ function handlePut($conn, $userId) {
         foreach ($allowedFields as $field) {
             if (isset($data[$field])) {
                 $updates[] = "$field = :$field";
+                // Forzamos el bool a int
                 $params[$field] = ($field === 'is_admin') ? (isset($data[$field]) && $data[$field] ? 1 : 0) : $data[$field];
             }
         }
@@ -172,6 +179,7 @@ function handleDelete($conn, $userId) {
         sendError("Profile ID is required", 400);
     }
 
+    // Solo admin puede borrar perfiles
     $stmt = $conn->prepare("SELECT is_admin FROM profiles WHERE id = :user_id");
     $stmt->execute(['user_id' => $userId]);
     $userProfile = $stmt->fetch(PDO::FETCH_ASSOC);
