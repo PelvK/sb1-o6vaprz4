@@ -1,12 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { User } from '../types';
 
-export interface User {
-  id: string;
-  email: string;
-  username: string;
-  is_admin: boolean;
-  created_at: string;
-}
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('session_token');

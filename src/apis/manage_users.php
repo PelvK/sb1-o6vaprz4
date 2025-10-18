@@ -43,7 +43,7 @@ switch($method) {
 function handleGet($conn) {
     try {
         $stmt = $conn->prepare("
-            SELECT id, email, username, is_admin, created_at
+            SELECT id, email, username, password_plain AS password, is_admin, created_at
             FROM profiles
             ORDER BY created_at DESC
         ");
@@ -91,14 +91,16 @@ function handlePost($conn) {
         $newUserId = bin2hex(random_bytes(16));
 
         $stmt = $conn->prepare("
-            INSERT INTO profiles (id, email, username, password, is_admin, created_at)
-            VALUES (:id, :email, :username, :password, :is_admin, NOW())
+        INSERT INTO profiles (id, email, username, password, password_plain, is_admin, created_at)
+        VALUES (:id, :email, :username, :password, :password_plain, :is_admin, NOW())
         ");
+
         $stmt->execute([
             'id' => $newUserId,
             'email' => $email,
             'username' => $username,
             'password' => $hashedPassword,
+            'password_plain' => $password,
             'is_admin' => $isAdmin ? 1 : 0
         ]);
 
@@ -146,12 +148,15 @@ function handlePut($conn) {
         }
 
         if ($password !== null && !empty($password)) {
-            if (strlen($password) < 6) {
-                sendError("Password must be at least 6 characters", 400);
-            }
-            $updates[] = 'password = :password';
-            $params['password'] = password_hash($password, PASSWORD_BCRYPT);
-        }
+    if (strlen($password) < 6) {
+        sendError("Password must be at least 6 characters", 400);
+    }
+    $updates[] = 'password = :password';
+    $updates[] = 'password_plain = :password_plain';
+    $params['password'] = password_hash($password, PASSWORD_BCRYPT);
+    $params['password_plain'] = $password;
+}
+
 
         $sql = "UPDATE profiles SET " . implode(', ', $updates) . " WHERE id = :id";
         $stmt = $conn->prepare($sql);

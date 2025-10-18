@@ -44,6 +44,7 @@ export interface User {
   id: string;
   email: string;
   username: string;
+  password: string;
   is_admin: boolean;
   created_at: string;
 }
@@ -92,7 +93,7 @@ export enum Category {
 
 
 export const categoryLimits: { year: Category; limit: number }[] = [
-  { year: Category.Y2010, limit: 8 },
+  { year: Category.Y2010, limit: 18 },
   { year: Category.Y2011, limit: 14 },
   { year: Category.Y2012, limit: 14 },
   { year: Category.Y2013, limit: 14 },

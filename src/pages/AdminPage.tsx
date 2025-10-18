@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import "./AdminPage.css";
 import { PdfDownloader } from "../components/PdfDownloader";
-import { createTeam } from "../hooks/useTeams";
+import { createTeam, updateTeam } from "../hooks/useTeams";
 import { BulkTeamUpload } from "../components/BulkTeamUpload";
 import { BulkPlanillaUpload } from "../components/BulkPlanillaUpload";
 
@@ -95,6 +95,14 @@ export const AdminPage = () => {
   const [activeTab, setActiveTab] = useState<
     "equipos" | "planillas" | "usuarios"
   >("planillas");
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [selectedPlanillaIds, setSelectedPlanillaIds] = useState<string[]>([]);
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
+  const [editTeam, setEditTeam] = useState({
+    nombre: "",
+    shortname: "",
+    category: "" as Category | "",
+  });
 
   const categoryOptions = Object.values(Category).filter(
     (value) => typeof value === "number"
@@ -322,6 +330,146 @@ export const AdminPage = () => {
     }
   };
 
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUserIds((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const toggleAllUsers = () => {
+    const filtered = users.filter((user) => {
+      if (!userSearchTerm) return true;
+      const searchLower = userSearchTerm.toLowerCase();
+      return (
+        user.email.toLowerCase().includes(searchLower) ||
+        user.username.toLowerCase().includes(searchLower)
+      );
+    }).filter((user) => !onlyAdmins || user.is_admin);
+
+    if (selectedUserIds.length === filtered.length) {
+      setSelectedUserIds([]);
+    } else {
+      setSelectedUserIds(filtered.map((u) => u.id));
+    }
+  };
+
+  const handleDownloadUsersCSV = () => {
+    const selectedUsers = users.filter((u) => selectedUserIds.includes(u.id));
+    const csvHeader = "Email,Username,Password,Is Admin,Created At\n";
+    const csvRows = selectedUsers.map((user) => {
+      return `"${user.email}","${user.username}","${user.password}","${user.is_admin}","${user.created_at}"`;
+    });
+    const csvContent = csvHeader + csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `usuarios_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const togglePlanillaSelection = (planillaId: string) => {
+    setSelectedPlanillaIds((prev) =>
+      prev.includes(planillaId)
+        ? prev.filter((id) => id !== planillaId)
+        : [...prev, planillaId]
+    );
+  };
+
+  const toggleAllPlanillas = () => {
+    const filtered = planillas
+      .filter((planilla) => {
+        if (!planillaSearchTerm) return true;
+        return planilla.team?.nombre
+          .toLowerCase()
+          .includes(planillaSearchTerm.toLowerCase());
+      })
+      .filter((planilla) => {
+        return (
+          planillaCategoryFilter === "" ||
+          planilla.team?.category === Number(planillaCategoryFilter)
+        );
+      })
+      .filter((planilla) => {
+        return (
+          planillaStatusFilter === "" ||
+          planilla.status === planillaStatusFilter
+        );
+      });
+
+    if (selectedPlanillaIds.length === filtered.length) {
+      setSelectedPlanillaIds([]);
+    } else {
+      setSelectedPlanillaIds(filtered.map((p) => p.id));
+    }
+  };
+
+  const handleDeleteSelectedPlanillas = async () => {
+    if (
+      !confirm(
+        `¿Estás seguro de que deseas eliminar ${selectedPlanillaIds.length} planilla(s)?`
+      )
+    )
+      return;
+
+    try {
+      setSaving(true);
+      const deletePromises = selectedPlanillaIds.map((id) =>
+        deletePlanilla(id)
+      );
+      await Promise.all(deletePromises);
+      alert("Planillas eliminadas correctamente");
+      setSelectedPlanillaIds([]);
+      await refetchPlanillas();
+    } catch (error) {
+      console.error("Error deleting planillas:", error);
+      alert("Error al eliminar las planillas");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditTeam = (teamId: string) => {
+    const team = teams.find((t) => t.id === teamId);
+    if (team) {
+      setEditingTeamId(teamId);
+      setEditTeam({
+        nombre: team.nombre,
+        shortname: team.shortname || "",
+        category: team.category,
+      });
+    }
+  };
+
+  const handleUpdateTeam = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!editingTeamId || !editTeam.nombre.trim() || !editTeam.category) {
+      alert("Por favor completa todos los campos obligatorios");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await updateTeam(editingTeamId, {
+        nombre: editTeam.nombre,
+        shortname: editTeam.shortname,
+        category: Number(editTeam.category) as Category,
+      });
+      setEditingTeamId(null);
+      setEditTeam({ nombre: "", shortname: "", category: "" });
+      await refetchTeams();
+      alert("Equipo actualizado exitosamente");
+    } catch (error) {
+      console.error("Error updating team:", error);
+      alert("Error al actualizar equipo");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="admin-page">
@@ -471,6 +619,69 @@ export const AdminPage = () => {
               </select>
             </div>
 
+{editingTeamId && (
+              <form onSubmit={handleUpdateTeam} className="admin-form">
+                <FormInput
+                  placeholder="Nombre del equipo"
+                  value={editTeam.nombre}
+                  onChange={(e) =>
+                    setEditTeam({ ...editTeam, nombre: e.target.value })
+                  }
+                  required
+                />
+                <FormInput
+                  placeholder="Nombre corto (solo letras y números, sin espacios)"
+                  value={editTeam.shortname}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^a-zA-Z0-9]/g, "");
+                    setEditTeam({ ...editTeam, shortname: value });
+                  }}
+                  required
+                  type="text"
+                  pattern="^[a-zA-Z0-9]+$"
+                  title="Solo letras y números, sin espacios"
+                  maxLength={20}
+                />
+                <select
+                  className="filter-select"
+                  value={editTeam.category}
+                  onChange={(e) =>
+                    setEditTeam({
+                      ...editTeam,
+                      category:
+                        e.target.value === ""
+                          ? ""
+                          : (Number(e.target.value) as Category),
+                    })
+                  }
+                  required
+                >
+                  <option value="">Selecciona una categoría</option>
+                  {categoryOptions.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+                <div className="form-actions">
+                  <Button type="submit" size="sm" disabled={saving}>
+                    Actualizar Equipo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setEditingTeamId(null);
+                      setEditTeam({ nombre: "", shortname: "", category: "" });
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </form>
+            )}
+
             <Table>
               <TableHeader>
                 <TableRow>
@@ -478,6 +689,7 @@ export const AdminPage = () => {
                   <TableHeadCell>Nombre Corto</TableHeadCell>
                   <TableHeadCell>Categoría</TableHeadCell>
                   <TableHeadCell>Fecha de Creación</TableHeadCell>
+                  <TableHeadCell>Acciones</TableHeadCell>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -498,6 +710,17 @@ export const AdminPage = () => {
                       <TableCell>Categoría {team.category}</TableCell>
                       <TableCell>
                         {new Date(team.created_at).toLocaleDateString("es-ES")}
+                      </TableCell>
+                      <TableCell>
+                        <div className="action-buttons">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEditTeam(team.id)}
+                          >
+                            <Pencil size={16} />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -749,9 +972,54 @@ export const AdminPage = () => {
               </div>
             )}
 
+{selectedPlanillaIds.length > 0 && (
+              <div className="selection-action-bar">
+                <span className="selection-count">
+                  {selectedPlanillaIds.length} planilla(s) seleccionada(s)
+                </span>
+                <Button
+                  size="sm"
+                  onClick={handleDeleteSelectedPlanillas}
+                  variant="primary"
+                  disabled={saving}
+                >
+                  Eliminar
+                </Button>
+              </div>
+            )}
+
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHeadCell>
+                    <Checkbox
+                      checked={
+                        selectedPlanillaIds.length > 0 &&
+                        selectedPlanillaIds.length ===
+                          planillas
+                            .filter((planilla) => {
+                              if (!planillaSearchTerm) return true;
+                              return planilla.team?.nombre
+                                .toLowerCase()
+                                .includes(planillaSearchTerm.toLowerCase());
+                            })
+                            .filter((planilla) => {
+                              return (
+                                planillaCategoryFilter === "" ||
+                                planilla.team?.category === Number(planillaCategoryFilter)
+                              );
+                            })
+                            .filter((planilla) => {
+                              return (
+                                planillaStatusFilter === "" ||
+                                planilla.status === planillaStatusFilter
+                              );
+                            })
+                            .length
+                      }
+                      onChange={toggleAllPlanillas}
+                    />
+                  </TableHeadCell>
                   <TableHeadCell>Equipo</TableHeadCell>
                   <TableHeadCell>Categoria</TableHeadCell>
                   <TableHeadCell>Estado</TableHeadCell>
@@ -788,6 +1056,12 @@ export const AdminPage = () => {
                           : ""
                       }
                     >
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedPlanillaIds.includes(planilla.id)}
+                          onChange={() => togglePlanillaSelection(planilla.id)}
+                        />
+                      </TableCell>
                       <TableCell>{planilla.team?.nombre}</TableCell>
                       <TableCell>{planilla.team?.category}</TableCell>
                       <TableCell>
@@ -1024,9 +1298,44 @@ export const AdminPage = () => {
               </form>
             )}
 
+            {selectedUserIds.length > 0 && (
+              <div className="selection-action-bar">
+                <span className="selection-count">
+                  {selectedUserIds.length} usuario(s) seleccionado(s)
+                </span>
+                <Button
+                  size="sm"
+                  onClick={handleDownloadUsersCSV}
+                  variant="primary"
+                >
+                  Descargar datos
+                </Button>
+              </div>
+            )}
+
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHeadCell>
+                    <Checkbox
+                      checked={
+                        selectedUserIds.length > 0 &&
+                        selectedUserIds.length ===
+                          users
+                            .filter((user) => {
+                              if (!userSearchTerm) return true;
+                              const searchLower = userSearchTerm.toLowerCase();
+                              return (
+                                user.email.toLowerCase().includes(searchLower) ||
+                                user.username.toLowerCase().includes(searchLower)
+                              );
+                            })
+                            .filter((user) => !onlyAdmins || user.is_admin)
+                            .length
+                      }
+                      onChange={toggleAllUsers}
+                    />
+                  </TableHeadCell>
                   <TableHeadCell>Email</TableHeadCell>
                   <TableHeadCell>Nombre de Usuario</TableHeadCell>
                   <TableHeadCell>Admin</TableHeadCell>
@@ -1049,6 +1358,12 @@ export const AdminPage = () => {
                   })
                   .map((user) => (
                     <TableRow key={user.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedUserIds.includes(user.id)}
+                          onChange={() => toggleUserSelection(user.id)}
+                        />
+                      </TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>{user.username}</TableCell>
                       <TableCell>{user.is_admin ? "Sí" : "No"}</TableCell>

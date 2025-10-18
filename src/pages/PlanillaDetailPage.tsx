@@ -43,6 +43,10 @@ export const PlanillaDetailPage = () => {
 
   const limit = categoryLimits.find(item => item.year == planilla?.team?.category)?.limit;
 
+  if(planilla) {
+    planilla.jugadores.sort((a, b) => a.number - b.number);
+  }
+
 
   const handleBack = () => {
     navigate(-1);
