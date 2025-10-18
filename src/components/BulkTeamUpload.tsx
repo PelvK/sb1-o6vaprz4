@@ -164,6 +164,7 @@ export const BulkTeamUpload = ({ onClose, onSuccess }: BulkTeamUploadProps) => {
                   <thead>
                     <tr>
                       <th>Nombre</th>
+                      <th>NombreCorto</th>
                       <th>Categoría</th>
                     </tr>
                   </thead>
@@ -171,6 +172,7 @@ export const BulkTeamUpload = ({ onClose, onSuccess }: BulkTeamUploadProps) => {
                     {validTeams.map((team, index) => (
                       <tr key={index}>
                         <td>{team.nombre}</td>
+                        <td>{team.shortname}</td>
                         <td>{team.category}</td>
                       </tr>
                     ))}

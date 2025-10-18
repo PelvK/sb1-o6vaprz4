@@ -14,6 +14,8 @@ export const StatusBadge = ({ status }: StatusBadgeProps) => {
         return 'status-approval';
       case 'Aprobada':
         return 'status-approved';
+      case 'Eliminada':
+        return 'status-deleted';
       default:
         return '';
     }

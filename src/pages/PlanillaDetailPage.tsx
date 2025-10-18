@@ -319,16 +319,19 @@ const handleChangeStatus = async (
                   onChange={(e) => setNewJugador({ ...newJugador, number: parseInt(e.target.value) || 0 })}
                 />
                 <FormInput
+                  type='number'
                   placeholder="DNI"
                   value={newJugador.dni}
                   onChange={(e) => setNewJugador({ ...newJugador, dni: e.target.value })}
                 />
                 <FormInput
+                  type='text'
                   placeholder="Nombre"
                   value={newJugador.name}
                   onChange={(e) => setNewJugador({ ...newJugador, name: e.target.value })}
                 />
                 <FormInput
+                  type='text'
                   placeholder="Apellido"
                   value={newJugador.second_name}
                   onChange={(e) => setNewJugador({ ...newJugador, second_name: e.target.value })}
@@ -464,21 +467,25 @@ const handleChangeStatus = async (
               <h4 className="add-form-title">Agregar Técnico, Médico o Delegado</h4>
               <div className="add-form-grid">
                 <FormInput
+                  type="number"
                   placeholder="DNI"
                   value={newPersona.dni}
                   onChange={(e) => setNewPersona({ ...newPersona, dni: e.target.value })}
                 />
                 <FormInput
+                  type="text"
                   placeholder="Nombre"
                   value={newPersona.name}
                   onChange={(e) => setNewPersona({ ...newPersona, name: e.target.value })}
                 />
                 <FormInput
+                  type="text"
                   placeholder="Apellido"
                   value={newPersona.second_name}
                   onChange={(e) => setNewPersona({ ...newPersona, second_name: e.target.value })}
                 />
                 <FormInput
+                  type="number"
                   placeholder="Teléfono"
                   value={newPersona.phone_number}
                   onChange={(e) => setNewPersona({ ...newPersona, phone_number: e.target.value })}

@@ -2,6 +2,7 @@ import { Category } from '../types';
 
 export interface TeamCSVRow {
   nombre: string;
+  shortname: string;
   category: number;
 }
 
@@ -78,7 +79,8 @@ export const validateTeamCSV = (csvText: string): ValidationResult => {
       }
 
       const nombre = row[0]?.trim() || '';
-      const categoryStr = row[1]?.trim() || '';
+      const shortname = row[1]?.trim() || '';
+      const categoryStr = row[2]?.trim() || '';
 
       if (!nombre) {
         errors.push({
@@ -86,6 +88,15 @@ export const validateTeamCSV = (csvText: string): ValidationResult => {
           field: 'nombre',
           value: '',
           message: 'El nombre del equipo es obligatorio',
+        });
+      }
+
+      if (!shortname) {
+        errors.push({
+          row: rowNumber,
+          field: 'nombreCorto',
+          value: '',
+          message: 'El nombre corto del equipo es obligatorio',
         });
       }
 
@@ -127,6 +138,7 @@ export const validateTeamCSV = (csvText: string): ValidationResult => {
 
       validTeams.push({
         nombre,
+        shortname,
         category,
       });
     }
@@ -158,9 +170,9 @@ export const validateTeamCSV = (csvText: string): ValidationResult => {
 
 export const createCSVTemplate = (): string => {
   const examples = [
-    'Equipo A,2010',
-    'Equipo B,2015',
-    'Equipo C,2018',
+    'Equipo A,NombreCortoA,2010',
+    'Equipo B,NombreCortoB,2015',
+    'Equipo C,NombreCortoC,2018',
   ];
 
   return [...examples].join('\n');

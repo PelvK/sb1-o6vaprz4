@@ -94,13 +94,21 @@ function handleGet($conn)
 
         sendResponse($result);
     } else {
-        $stmt = $conn->query("
+        $showDeleted = isset($_GET['show_deleted']) && $_GET['show_deleted'] === 'true';
+
+        $sql = "
             SELECT p.id, p.team_id, p.status, p.created_at, p.updated_at,
                    t.nombre AS team_nombre, t.category AS team_category
             FROM planillas p
-            LEFT JOIN teams t ON p.team_id = t.id
-            ORDER BY p.created_at DESC
-        ");
+            LEFT JOIN teams t ON p.team_id = t.id";
+
+        if (!$showDeleted) {
+            $sql .= " WHERE p.status != 'Eliminada'";
+        }
+
+        $sql .= " ORDER BY p.created_at DESC";
+
+        $stmt = $conn->query($sql);
 
         $planillas = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -253,7 +261,7 @@ function handleBulkCreate($conn, $data, $userId) {
                     continue;
                 }
 
-                $stmt = $conn->prepare("SELECT id FROM planillas WHERE team_id = :team_id");
+                $stmt = $conn->prepare("SELECT id FROM planillas WHERE team_id = :team_id AND status != 'Eliminada'");
                 $stmt->execute(['team_id' => $planilla['team_id']]);
                 if ($stmt->fetch()) {
                     $failed++;
@@ -432,15 +440,16 @@ function handleDelete($conn, $userId)
     $stmt->execute(['id' => $id]);
     $planilla = $stmt->fetch(PDO::FETCH_ASSOC);
 
+    if (!$planilla) {
+        sendError("Planilla not found", 404);
+    }
+
     try {
         $conn->beginTransaction();
 
-        $conn->prepare("DELETE FROM jugadores WHERE planilla_id = :id")->execute(['id' => $id]);
-        $conn->prepare("DELETE FROM personas WHERE planilla_id = :id")->execute(['id' => $id]);
-        $conn->prepare("DELETE FROM user_planilla WHERE planilla_id = :id")->execute(['id' => $id]);
-        $conn->prepare("DELETE FROM planillas WHERE id = :id")->execute(['id' => $id]);
+        $stmt = $conn->prepare("UPDATE planillas SET status = 'Eliminada', updated_at = NOW() WHERE id = :id");
+        $stmt->execute(['id' => $id]);
 
-        // Audit log: eliminación
         if ($planilla) {
             logAudit(
                 $conn,
@@ -449,12 +458,16 @@ function handleDelete($conn, $userId)
                 'planilla_deleted',
                 'planilla',
                 $id,
-                $planilla
+                [
+                    'old_status' => $planilla['status'],
+                    'new_status' => 'Eliminada',
+                    'team_id' => $planilla['team_id']
+                ]
             );
         }
 
         $conn->commit();
-        sendResponse(['message' => 'Planilla eliminada correctamente']);
+        sendResponse(['message' => 'Planilla marcada como eliminada correctamente']);
     } catch (Exception $e) {
         $conn->rollBack();
         sendError("Error deleting planilla: " . $e->getMessage(), 500);

@@ -1,4 +1,4 @@
-export type PlanillaStatus = 'Pendiente de envío' | 'Pendiente de aprobación' | 'Aprobada';
+export type PlanillaStatus = 'Pendiente de envío' | 'Pendiente de aprobación' | 'Aprobada' | 'Eliminada';
 
 export type PersonaCharge = 'Técnico' | 'Delegado' | 'Médico';
 

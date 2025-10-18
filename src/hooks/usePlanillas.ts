@@ -14,7 +14,7 @@ export const usePlanillas = () => {
   const fetchPlanillas = async () => {
     try {
       setLoading(true);
-      const data = await api.get<Planilla[]>('planillas.php');
+      const data = await api.get<Planilla[]>('planillas.php?&show_deleted=true');
       setPlanillas(data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading planillas');

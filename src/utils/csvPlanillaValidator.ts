@@ -109,9 +109,9 @@ export const validatePlanillaCSV = (csvText: string, existingTeams: Team[]): Val
       }
 
       const randomNum = Math.floor(1000 + Math.random() * 9000);
-      const email = `${team.shortname}@valesanito`;
-      const password = `${team.shortname}${team.category}${randomNum}`;
-      const username = team.shortname;
+      const email = `${team.shortname}-${team.category}@valesanito`;
+      const password = `${team.shortname}${randomNum}`;
+      const username = `${team.shortname}-${team.category}`;
 
       validPlanillas.push({
         team_id: teamId,

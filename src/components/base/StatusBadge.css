@@ -22,3 +22,9 @@
   background-color: #D1FAE5;
   color: #065F46;
 }
+
+.status-deleted {
+  background-color: #FEE2E2;
+  color: #991B1B;
+  font-weight: 600;
+}

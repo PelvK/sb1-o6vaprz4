@@ -58,6 +58,7 @@ export const AdminPage = () => {
   const [showBulkPlanillaUpload, setShowBulkPlanillaUpload] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [newTeamName, setNewTeamName] = useState("");
+  const [newTeamShortName, setNewTeamShortName] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Category | "">("");
   const [newPlanilla, setNewPlanilla] = useState({
     team_id: "",
@@ -75,14 +76,22 @@ export const AdminPage = () => {
     password: "",
     is_admin: false,
   });
+  const [userSearchTerm, setUserSearchTerm] = useState("");
   const [saving, setSaving] = useState(false);
   const [teamSearchTerm, setTeamSearchTerm] = useState("");
   const [teamCategoryFilter, setTeamCategoryFilter] = useState<Category | "">(
     ""
   );
+  const [planillaCategoryFilter, setPlanillaCategoryFilter] = useState<
+    Category | ""
+  >("");
+  const [planillaStatusFilter, setPlanillaStatusFilter] = useState<
+    PlanillaStatus | ""
+  >("");
   const [planillaTeamSearch, setPlanillaTeamSearch] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [planillaUserSearch, setPlanillaUserSearch] = useState("");
+  const [planillaSearchTerm, setPlanillaSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<
     "equipos" | "planillas" | "usuarios"
   >("planillas");
@@ -91,6 +100,14 @@ export const AdminPage = () => {
     (value) => typeof value === "number"
   ) as number[];
 
+  const statusOptions = [
+    "Pendiente de envío",
+    "Pendiente de aprobación",
+    "Aprobada",
+    "Eliminada",
+  ];
+
+  const [onlyAdmins, setOnlyAdmins] = useState<boolean>(false);
   /** Migrated! */
   const handleCreateTeam = async (e: FormEvent) => {
     e.preventDefault();
@@ -106,6 +123,7 @@ export const AdminPage = () => {
 
       const response = await createTeam({
         nombre: newTeamName,
+        shortname: newTeamShortName,
         category: Number(categoryFilter),
       });
 
@@ -341,7 +359,7 @@ export const AdminPage = () => {
           <div className="admin-section">
             <div className="section-header">
               <h3 className="section-title">Equipos</h3>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -371,46 +389,59 @@ export const AdminPage = () => {
             )}
 
             {showNewTeamForm && (
-              <form onSubmit={handleCreateTeam} className="admin-form">
+                <form onSubmit={handleCreateTeam} className="admin-form">
                 <FormInput
                   placeholder="Nombre del equipo"
                   value={newTeamName}
                   onChange={(e) => setNewTeamName(e.target.value)}
                   required
                 />
+                <FormInput
+                  placeholder="Nombre corto (solo letras y números, sin espacios)"
+                  value={newTeamShortName}
+                  onChange={(e) => {
+                  const value = e.target.value.replace(/[^a-zA-Z0-9]/g, "");
+                  setNewTeamShortName(value);
+                  }}
+                  required
+                  type="text"
+                  pattern="^[a-zA-Z0-9]+$"
+                  title="Solo letras y números, sin espacios"
+                  maxLength={20}
+                />
                 <select
                   className="filter-select"
                   value={categoryFilter}
                   onChange={(e) =>
-                    setCategoryFilter(
-                      e.target.value === ""
-                        ? ""
-                        : (Number(e.target.value) as Category)
-                    )
+                  setCategoryFilter(
+                    e.target.value === ""
+                    ? ""
+                    : (Number(e.target.value) as Category)
+                  )
                   }
                   required
                 >
                   <option value="">Selecciona una categoría</option>
                   {categoryOptions.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
                   ))}
                 </select>
                 <div className="form-actions">
                   <Button type="submit" size="sm" disabled={saving}>
-                    Crear Equipo
+                  Crear Equipo
                   </Button>
                   <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowNewTeamForm(false)}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowNewTeamForm(false)}
                   >
-                    Cancelar
+                  Cancelar
                   </Button>
                 </div>
-              </form>
+                </form>
             )}
 
             <div className="team-filters">
@@ -444,6 +475,7 @@ export const AdminPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHeadCell>Nombre del Equipo</TableHeadCell>
+                  <TableHeadCell>Nombre Corto</TableHeadCell>
                   <TableHeadCell>Categoría</TableHeadCell>
                   <TableHeadCell>Fecha de Creación</TableHeadCell>
                 </TableRow>
@@ -462,6 +494,7 @@ export const AdminPage = () => {
                   .map((team) => (
                     <TableRow key={team.id}>
                       <TableCell>{team.nombre}</TableCell>
+                      <TableCell>{team.shortname}</TableCell>
                       <TableCell>Categoría {team.category}</TableCell>
                       <TableCell>
                         {new Date(team.created_at).toLocaleDateString("es-ES")}
@@ -477,7 +510,7 @@ export const AdminPage = () => {
           <div className="admin-section">
             <div className="section-header">
               <h3 className="section-title">Planillas</h3>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -507,6 +540,51 @@ export const AdminPage = () => {
                 existingPlanillas={planillas}
               />
             )}
+
+            <div className="team-filters">
+              <FormInput
+                type="text"
+                placeholder="Buscar planilla por equipo..."
+                value={planillaSearchTerm}
+                onChange={(e) => setPlanillaSearchTerm(e.target.value)}
+              />
+              <select
+                className="filter-select"
+                value={planillaCategoryFilter}
+                onChange={(e) =>
+                  setPlanillaCategoryFilter(
+                    e.target.value === ""
+                      ? ""
+                      : (Number(e.target.value) as Category)
+                  )
+                }
+              >
+                <option value="">Todas las categorías</option>
+                {categoryOptions.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="filter-select"
+                value={planillaStatusFilter}
+                onChange={(e) =>
+                  setPlanillaStatusFilter(
+                    e.target.value === ""
+                      ? ""
+                      : (e.target.value as PlanillaStatus)
+                  )
+                }
+              >
+                <option value="">Todos los estados</option>
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {showNewPlanillaForm && (
               <div className="admin-form-container">
@@ -682,93 +760,121 @@ export const AdminPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {planillas.map((planilla) => (
-                  <TableRow key={planilla.id}>
-                    <TableCell>{planilla.team?.nombre}</TableCell>
-                    <TableCell>{planilla.team?.category}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={planilla.status} />
-                    </TableCell>
-                    <TableCell>
-                      {new Date(planilla.created_at).toLocaleDateString(
-                        "es-ES"
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="action-buttons">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => navigate(`/planillas/${planilla.id}`)}
-                        >
-                          <Edit2 size={16} />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDeletePlanilla(planilla.id)}
-                        >
-                          <Trash2 size={16} />
-                        </Button>
-                        {planilla.status === "Pendiente de aprobación" && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() =>
-                                handleChangeStatus(planilla.id, "Aprobada")
-                              }
-                            >
-                              <CheckCircle size={16} />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() =>
-                                handleChangeStatus(
-                                  planilla.id,
-                                  "Pendiente de envío"
-                                )
-                              }
-                            >
-                              <XCircle size={16} />
-                            </Button>
-                          </>
+                {planillas
+                  .filter((planilla) => {
+                    if (!planillaSearchTerm) return true;
+                    return planilla.team?.nombre
+                      .toLowerCase()
+                      .includes(planillaSearchTerm.toLowerCase());
+                  })
+                  .filter((planilla) => {
+                    return (
+                      planillaCategoryFilter === "" ||
+                      planilla.team?.category === Number(planillaCategoryFilter)
+                    );
+                  })
+                  .filter((planilla) => {
+                    return (
+                      planillaStatusFilter === "" ||
+                      planilla.status === planillaStatusFilter
+                    );
+                  })
+                  .map((planilla) => (
+                    <TableRow
+                      key={planilla.id}
+                      className={
+                        planilla.status === "Eliminada"
+                          ? "deleted-planilla-row"
+                          : ""
+                      }
+                    >
+                      <TableCell>{planilla.team?.nombre}</TableCell>
+                      <TableCell>{planilla.team?.category}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={planilla.status} />
+                      </TableCell>
+                      <TableCell>
+                        {new Date(planilla.created_at).toLocaleDateString(
+                          "es-ES"
                         )}
-                        {planilla.status === "Aprobada" && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() =>
-                                handleChangeStatus(
-                                  planilla.id,
-                                  "Pendiente de envío"
-                                )
-                              }
-                            >
-                              <XCircle size={16} />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setPdfPlanillaId(planilla.id)}
-                              title="Descargar como PDF"
-                            >
-                              📄 PDF
-                            </Button>
-                          </>
-                        )}
-                        {pdfPlanillaId && (
-                          <PdfDownloader
-                            planillaId={pdfPlanillaId}
-                            onClose={() => setPdfPlanillaId(null)}
-                          />
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell>
+                        <div className="action-buttons">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              navigate(`/planillas/${planilla.id}`)
+                            }
+                          >
+                            <Edit2 size={16} />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeletePlanilla(planilla.id)}
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                          {planilla.status === "Pendiente de aprobación" && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  handleChangeStatus(planilla.id, "Aprobada")
+                                }
+                              >
+                                <CheckCircle size={16} />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  handleChangeStatus(
+                                    planilla.id,
+                                    "Pendiente de envío"
+                                  )
+                                }
+                              >
+                                <XCircle size={16} />
+                              </Button>
+                            </>
+                          )}
+                          {planilla.status === "Aprobada" && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  handleChangeStatus(
+                                    planilla.id,
+                                    "Pendiente de envío"
+                                  )
+                                }
+                              >
+                                <XCircle size={16} />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setPdfPlanillaId(planilla.id)}
+                                title="Descargar como PDF"
+                              >
+                                📄 PDF
+                              </Button>
+                            </>
+                          )}
+                          {pdfPlanillaId && (
+                            <PdfDownloader
+                              planillaId={pdfPlanillaId}
+                              onClose={() => setPdfPlanillaId(null)}
+                            />
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           </div>
@@ -845,6 +951,22 @@ export const AdminPage = () => {
               </form>
             )}
 
+            <div className="team-filters">
+              <FormInput
+                type="text"
+                placeholder="Buscar usuario..."
+                value={userSearchTerm}
+                onChange={(e) => setUserSearchTerm(e.target.value)}
+              />
+              <div className="only-admins-filter">
+                <Checkbox
+                  label="Solo administradores"
+                  checked={onlyAdmins}
+                  onChange={(checked) => setOnlyAdmins(checked)}
+                />
+              </div>
+            </div>
+
             {editingUserId && (
               <form onSubmit={handleUpdateUser} className="admin-form">
                 <FormInput
@@ -888,7 +1010,12 @@ export const AdminPage = () => {
                     size="sm"
                     onClick={() => {
                       setEditingUserId(null);
-                      setEditUser({ username: "", email: "", password: "", is_admin: false });
+                      setEditUser({
+                        username: "",
+                        email: "",
+                        password: "",
+                        is_admin: false,
+                      });
                     }}
                   >
                     Cancelar
@@ -908,34 +1035,46 @@ export const AdminPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.username}</TableCell>
-                    <TableCell>{user.is_admin ? "Sí" : "No"}</TableCell>
-                    <TableCell>
-                      {new Date(user.created_at).toLocaleDateString("es-ES")}
-                    </TableCell>
-                    <TableCell>
-                      <div className="action-buttons">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleEditUser(user.id)}
-                        >
-                          <Pencil size={16} />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDeleteUser(user.id)}
-                        >
-                          <Trash2 size={16} />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {users
+                  .filter((user) => {
+                    if (!userSearchTerm) return true;
+                    const searchLower = userSearchTerm.toLowerCase();
+                    return (
+                      user.email.toLowerCase().includes(searchLower) ||
+                      user.username.toLowerCase().includes(searchLower)
+                    );
+                  })
+                  .filter((user) => {
+                    return !onlyAdmins || user.is_admin;
+                  })
+                  .map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>{user.username}</TableCell>
+                      <TableCell>{user.is_admin ? "Sí" : "No"}</TableCell>
+                      <TableCell>
+                        {new Date(user.created_at).toLocaleDateString("es-ES")}
+                      </TableCell>
+                      <TableCell>
+                        <div className="action-buttons">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEditUser(user.id)}
+                          >
+                            <Pencil size={16} />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteUser(user.id)}
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           </div>

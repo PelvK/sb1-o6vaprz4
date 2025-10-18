@@ -130,8 +130,20 @@ function handleBulkCreate($conn, $data) {
                     $failed++;
                     $errors[] = [
                         'nombre' => $team['nombre'] ?? 'N/A',
+                        'shortname' => $team['shortname'] ?? 'N/A',
                         'category' => $team['category'] ?? 'N/A',
                         'error' => 'El campo nombre es obligatorio'
+                    ];
+                    continue;
+                }
+
+                if (!isset($team['shortname']) || empty($team['shortname'])) {
+                    $failed++;
+                    $errors[] = [
+                        'nombre' => $team['nombre'],
+                        'shortname' => $team['shortname'] ?? 'N/A',
+                        'category' => $team['category'] ?? 'N/A',
+                        'error' => 'El campo nombre corto es obligatorio'
                     ];
                     continue;
                 }
@@ -140,6 +152,7 @@ function handleBulkCreate($conn, $data) {
                     $failed++;
                     $errors[] = [
                         'nombre' => $team['nombre'],
+                        'shortname' => $team['shortname'] ?? 'N/A',
                         'category' => $team['category'] ?? 'N/A',
                         'error' => 'El campo categoría es obligatorio y debe ser numérico'
                     ];
@@ -161,6 +174,7 @@ function handleBulkCreate($conn, $data) {
                 $failed++;
                 $errors[] = [
                     'nombre' => $team['nombre'] ?? 'N/A',
+                    'shortname' => $team['shortname'] ?? 'N/A',
                     'category' => $team['category'] ?? 'N/A',
                     'error' => 'Error al insertar: ' . $e->getMessage()
                 ];

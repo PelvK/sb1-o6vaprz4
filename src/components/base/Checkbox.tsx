@@ -35,7 +35,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
                 className="checkbox_input"
             />
             <span className="checkbox_custom" />
-            {label && <span className="checkbox_label">{label}</span>}
+            {label && <span className="checkbox_label">{'     '}{label}</span>}
         </label>
     );
 };
