@@ -18,7 +18,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log("[DEBUG] AUTH:", { user });
   }, [user]);
 
   useEffect(() => {
@@ -28,7 +27,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const checkSession = async () => {
     try {
       const token = localStorage.getItem('session_token');
-      console.log("[DEBUG] TOKEN:", { token });
       if (!token) {
         setLoading(false);
         return;

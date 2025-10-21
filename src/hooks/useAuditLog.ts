@@ -7,7 +7,6 @@ export const useAuditLog = (planillaId: string) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log("[DEBUG] AUDIT LOGS:", auditLogs);
   }, [auditLogs]);
 
   const fetchAuditLogs = useCallback(async () => {

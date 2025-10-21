@@ -1,4 +1,4 @@
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/layout/Layout";
 import {
@@ -44,7 +44,7 @@ export const AdminPage = () => {
   const { planillas, refetch: refetchPlanillas } = usePlanillas();
   const [pdfPlanillaId, setPdfPlanillaId] = useState<string | null>(null);
   const { teams, refetch: refetchTeams } = useTeams();
-  const { profiles } = useProfiles();
+  const { profiles, refetch: refetchProfiles } = useProfiles();
   const {
     users,
     createUser,
@@ -229,7 +229,7 @@ export const AdminPage = () => {
     }
   };
 
-  /** @todo make this in the next migration */
+  /** Migrated! */
   const handleCreateUser = async (e: FormEvent) => {
     e.preventDefault();
     if (
@@ -264,7 +264,7 @@ export const AdminPage = () => {
       setSaving(false);
     }
   };
-  /** @todo make this in the next migration */
+  /** Migrated! */
   const handleEditUser = (userId: string) => {
     const user = users.find((u) => u.id === userId);
     if (user) {
@@ -277,7 +277,7 @@ export const AdminPage = () => {
       });
     }
   };
-  /** @todo make this in the next migration */
+  /** Migrated! */
   const handleUpdateUser = async (e: FormEvent) => {
     e.preventDefault();
     if (!editingUserId || !editUser.username.trim() || !editUser.email.trim()) {
@@ -339,14 +339,16 @@ export const AdminPage = () => {
   };
 
   const toggleAllUsers = () => {
-    const filtered = users.filter((user) => {
-      if (!userSearchTerm) return true;
-      const searchLower = userSearchTerm.toLowerCase();
-      return (
-        user.email.toLowerCase().includes(searchLower) ||
-        user.username.toLowerCase().includes(searchLower)
-      );
-    }).filter((user) => !onlyAdmins || user.is_admin);
+    const filtered = users
+      .filter((user) => {
+        if (!userSearchTerm) return true;
+        const searchLower = userSearchTerm.toLowerCase();
+        return (
+          user.email.toLowerCase().includes(searchLower) ||
+          user.username.toLowerCase().includes(searchLower)
+        );
+      })
+      .filter((user) => !onlyAdmins || user.is_admin);
 
     if (selectedUserIds.length === filtered.length) {
       setSelectedUserIds([]);
@@ -470,6 +472,16 @@ export const AdminPage = () => {
     }
   };
 
+  useEffect(() => {
+    if (activeTab === "equipos") {
+      refetchTeams();
+    } else if (activeTab === "planillas") {
+      refetchPlanillas();
+    } else if (activeTab === "usuarios") {
+      refetchProfiles();
+    }
+  }, [activeTab]);
+
   return (
     <Layout>
       <div className="admin-page">
@@ -537,7 +549,7 @@ export const AdminPage = () => {
             )}
 
             {showNewTeamForm && (
-                <form onSubmit={handleCreateTeam} className="admin-form">
+              <form onSubmit={handleCreateTeam} className="admin-form">
                 <FormInput
                   placeholder="Nombre del equipo"
                   value={newTeamName}
@@ -548,8 +560,8 @@ export const AdminPage = () => {
                   placeholder="Nombre corto (solo letras y números, sin espacios)"
                   value={newTeamShortName}
                   onChange={(e) => {
-                  const value = e.target.value.replace(/[^a-zA-Z0-9]/g, "");
-                  setNewTeamShortName(value);
+                    const value = e.target.value.replace(/[^a-zA-Z0-9]/g, "");
+                    setNewTeamShortName(value);
                   }}
                   required
                   type="text"
@@ -561,35 +573,35 @@ export const AdminPage = () => {
                   className="filter-select"
                   value={categoryFilter}
                   onChange={(e) =>
-                  setCategoryFilter(
-                    e.target.value === ""
-                    ? ""
-                    : (Number(e.target.value) as Category)
-                  )
+                    setCategoryFilter(
+                      e.target.value === ""
+                        ? ""
+                        : (Number(e.target.value) as Category)
+                    )
                   }
                   required
                 >
                   <option value="">Selecciona una categoría</option>
                   {categoryOptions.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
                   ))}
                 </select>
                 <div className="form-actions">
                   <Button type="submit" size="sm" disabled={saving}>
-                  Crear Equipo
+                    Crear Equipo
                   </Button>
                   <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowNewTeamForm(false)}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowNewTeamForm(false)}
                   >
-                  Cancelar
+                    Cancelar
                   </Button>
                 </div>
-                </form>
+              </form>
             )}
 
             <div className="team-filters">
@@ -619,7 +631,7 @@ export const AdminPage = () => {
               </select>
             </div>
 
-{editingTeamId && (
+            {editingTeamId && (
               <form onSubmit={handleUpdateTeam} className="admin-form">
                 <FormInput
                   placeholder="Nombre del equipo"
@@ -972,7 +984,7 @@ export const AdminPage = () => {
               </div>
             )}
 
-{selectedPlanillaIds.length > 0 && (
+            {selectedPlanillaIds.length > 0 && (
               <div className="selection-action-bar">
                 <span className="selection-count">
                   {selectedPlanillaIds.length} planilla(s) seleccionada(s)
@@ -1006,7 +1018,8 @@ export const AdminPage = () => {
                             .filter((planilla) => {
                               return (
                                 planillaCategoryFilter === "" ||
-                                planilla.team?.category === Number(planillaCategoryFilter)
+                                planilla.team?.category ===
+                                  Number(planillaCategoryFilter)
                               );
                             })
                             .filter((planilla) => {
@@ -1014,8 +1027,7 @@ export const AdminPage = () => {
                                 planillaStatusFilter === "" ||
                                 planilla.status === planillaStatusFilter
                               );
-                            })
-                            .length
+                            }).length
                       }
                       onChange={toggleAllPlanillas}
                     />
@@ -1326,8 +1338,12 @@ export const AdminPage = () => {
                               if (!userSearchTerm) return true;
                               const searchLower = userSearchTerm.toLowerCase();
                               return (
-                                user.email.toLowerCase().includes(searchLower) ||
-                                user.username.toLowerCase().includes(searchLower)
+                                user.email
+                                  .toLowerCase()
+                                  .includes(searchLower) ||
+                                user.username
+                                  .toLowerCase()
+                                  .includes(searchLower)
                               );
                             })
                             .filter((user) => !onlyAdmins || user.is_admin)

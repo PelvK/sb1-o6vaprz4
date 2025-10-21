@@ -5,6 +5,7 @@ export interface PlanillaCSVRow {
   shortname: string;
   email: string;
   password: string;
+  plain_password: string;
   username: string;
 }
 
@@ -118,6 +119,7 @@ export const validatePlanillaCSV = (csvText: string, existingTeams: Team[]): Val
         shortname: team.shortname,
         email,
         password,
+        plain_password: password,
         username,
       });
     }
@@ -147,17 +149,16 @@ export const validatePlanillaCSV = (csvText: string, existingTeams: Team[]): Val
   }
 };
 
-export const createCSVTemplate = (teamsWithoutPlanilla: Array<{id: string, nombre: string, shortname?: string | null}>): string => {
+export const createCSVTemplate = (teamsWithoutPlanilla: Partial<Team>[]): string => {
   const header = 'team_id,nombre_equipo,shortname';
   const examples = teamsWithoutPlanilla
     .filter(t => t.shortname)
-    .slice(0, 3)
     .map(t => `${t.id},${t.nombre},${t.shortname}`);
 
   return [header, ...examples].join('\n');
 };
 
-export const downloadCSVTemplate = (teamsWithoutPlanilla: Array<{id: string, nombre: string, shortname?: string | null}>): void => {
+export const downloadCSVTemplate = (teamsWithoutPlanilla: Partial<Team>[]): void => {
   const csvContent = createCSVTemplate(teamsWithoutPlanilla);
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');

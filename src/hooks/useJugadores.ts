@@ -26,11 +26,6 @@ export const useJugadores = (planillaId: string) => {
     if (planillaId) fetchJugadores();
   }, [planillaId, fetchJugadores]);
 
-  useEffect(() => {
-    // debug para desarrollo
-    // console.log("[DEBUG] JUGADORES:", jugadores);
-  }, [jugadores]);
-
   return { jugadores, loading, error, refetch: fetchJugadores };
 };
 

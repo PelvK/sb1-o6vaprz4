@@ -7,10 +7,6 @@ export const usePlanillas = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    console.log("[DEBUG] PLANILLAS:", planillas);
-  }, [planillas]);
-
   const fetchPlanillas = async () => {
     try {
       setLoading(true);
@@ -35,10 +31,6 @@ export const usePlanilla = (id: string) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    console.log("[DEBUG] PLANILLA:", planilla);
-    console.log("[DEBUG] PLANILLA ID:", id);
-  }, [planilla, id]);
 
   const fetchPlanilla = useCallback(async () => {
     try {

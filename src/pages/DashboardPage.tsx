@@ -17,7 +17,7 @@ export const DashboardPage = () => {
   const [categoryFilter, setCategoryFilter] = useState<Category | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-
+  console.log('planillas', planillas);
   const categories = Object.values(Category).filter((value) => typeof value === "number") as number[];
 
 

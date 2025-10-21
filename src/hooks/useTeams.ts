@@ -7,10 +7,6 @@ export const useTeams = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    console.log("[DEBUG] TEAMS:", teams);
-  }, [teams]);
-
   const fetchTeams = useCallback(async () => {
     try {
       setLoading(true);

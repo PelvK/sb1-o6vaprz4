@@ -8,7 +8,6 @@ interface AuditLogProps {
 }
 
 const getActionText = (log: AuditLogType): string => {
-  console.log("[DEBUG] AUDIT LOG ENTRY:", log);
   switch (log.action) {
     case "jugador_added":
       return `agregó al jugador #${log.details.number} -  ${log.details.name} ${log.details.second_name} (DNI: ${log.details.dni})`;

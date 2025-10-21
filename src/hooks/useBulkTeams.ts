@@ -22,7 +22,6 @@ export const useBulkTeams = () => {
     try {
       setLoading(true);
       setError(null);
-      console.log('Creating bulk teams:', teams);
       const result = await api.post<BulkTeamResult>('teams.php?bulk=true', { teams });
 
       return result;

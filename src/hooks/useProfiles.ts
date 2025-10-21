@@ -7,10 +7,6 @@ export const useProfiles = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    console.log("[DEBUG] PROFILES:", profiles);
-  }, [profiles]);
-
   const fetchProfiles = async () => {
     try {
       setLoading(true);

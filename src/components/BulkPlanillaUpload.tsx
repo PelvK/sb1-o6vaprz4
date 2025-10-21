@@ -27,7 +27,7 @@ export const BulkPlanillaUpload = ({ onClose, onSuccess, teams, existingPlanilla
   const [uploadResult, setUploadResult] = useState<{ created: number; failed: number; planillas?: Array<{ team_id: string; username: string; email: string; password: string }>; errors?: Array<{ team_id: string; error: string }> } | null>(null);
 
   const teamsWithoutPlanilla = teams.filter(
-    team => !existingPlanillas.some(p => p.team_id === team.id && p.status !== 'Eliminada') && team.shortname
+    team => !existingPlanillas.some(p => p.team_id === team.id && p.status !== 'Eliminada' && team.shortname)
   );
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -79,7 +79,6 @@ export const BulkPlanillaUpload = ({ onClose, onSuccess, teams, existingPlanilla
 
     try {
       const result = await createBulkPlanillas(validPlanillas);
-
       setUploadResult({
         created: result.created,
         failed: result.failed,

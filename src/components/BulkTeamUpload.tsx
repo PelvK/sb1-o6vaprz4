@@ -80,6 +80,7 @@ export const BulkTeamUpload = ({ onClose, onSuccess }: BulkTeamUploadProps) => {
       });
 
       if (result.created > 0) {
+        alert(`Éxito: ${result.created} equipo(s) creado(s) exitosamente.`);
         setUploadStatus('success');
         onSuccess();
       } else {
