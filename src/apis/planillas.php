@@ -33,7 +33,13 @@ switch ($method) {
 
 function handleGet($conn)
 {
+    $userId = getAuthUserId();
     $id = $_GET['id'] ?? null;
+
+    $stmt = $conn->prepare("SELECT is_admin FROM profiles WHERE id = :user_id");
+    $stmt->execute(['user_id' => $userId]);
+    $userProfile = $stmt->fetch(PDO::FETCH_ASSOC);
+    $isAdmin = $userProfile && $userProfile['is_admin'];
 
     if ($id) {
         $stmt = $conn->prepare("
@@ -96,19 +102,38 @@ function handleGet($conn)
     } else {
         $showDeleted = isset($_GET['show_deleted']) && $_GET['show_deleted'] === 'true';
 
-        $sql = "
-            SELECT p.id, p.team_id, p.status, p.created_at, p.updated_at,
-                   t.nombre AS team_nombre, t.category AS team_category
-            FROM planillas p
-            LEFT JOIN teams t ON p.team_id = t.id";
+        if ($isAdmin) {
+            $sql = "
+                SELECT p.id, p.team_id, p.status, p.created_at, p.updated_at,
+                       t.nombre AS team_nombre, t.category AS team_category
+                FROM planillas p
+                LEFT JOIN teams t ON p.team_id = t.id";
 
-        if (!$showDeleted) {
-            $sql .= " WHERE p.status != 'Eliminada'";
+            if (!$showDeleted) {
+                $sql .= " WHERE p.status != 'Eliminada'";
+            }
+
+            $sql .= " ORDER BY p.created_at DESC";
+
+            $stmt = $conn->query($sql);
+        } else {
+            $sql = "
+                SELECT p.id, p.team_id, p.status, p.created_at, p.updated_at,
+                       t.nombre AS team_nombre, t.category AS team_category
+                FROM planillas p
+                LEFT JOIN teams t ON p.team_id = t.id
+                INNER JOIN user_planilla up ON p.id = up.planilla_id
+                WHERE up.user_id = :user_id";
+
+            if (!$showDeleted) {
+                $sql .= " AND p.status != 'Eliminada'";
+            }
+
+            $sql .= " ORDER BY p.created_at DESC";
+
+            $stmt = $conn->prepare($sql);
+            $stmt->execute(['user_id' => $userId]);
         }
-
-        $sql .= " ORDER BY p.created_at DESC";
-
-        $stmt = $conn->query($sql);
 
         $planillas = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {

@@ -1,4 +1,4 @@
-import { useState, FormEvent, useEffect } from "react";
+import { useState, FormEvent, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/layout/Layout";
 import {
@@ -23,6 +23,7 @@ import {
   TableCell,
 } from "../components/base/Table";
 import { StatusBadge } from "../components/base/StatusBadge";
+import { Pagination } from "../components/base/Pagination";
 import { Category, PlanillaStatus } from "../types";
 import {
   Plus,
@@ -49,7 +50,7 @@ export const AdminPage = () => {
     users,
     createUser,
     updateUser,
-    deleteUser /* refetch: refetchUsers */,
+    deleteUser,
   } = useUsers();
   const [showNewPlanillaForm, setShowNewPlanillaForm] = useState(false);
   const [showNewTeamForm, setShowNewTeamForm] = useState(false);
@@ -103,6 +104,10 @@ export const AdminPage = () => {
     shortname: "",
     category: "" as Category | "",
   });
+  const [teamsPage, setTeamsPage] = useState(1);
+  const [usersPage, setUsersPage] = useState(1);
+  const [planillasPage, setPlanillasPage] = useState(1);
+  const itemsPerPage = 20;
 
   const categoryOptions = Object.values(Category).filter(
     (value) => typeof value === "number"
@@ -472,13 +477,76 @@ export const AdminPage = () => {
     }
   };
 
+  const filteredTeams = useMemo(() => {
+    return teams.filter((team) => {
+      const matchesSearch = team.nombre
+        .toLowerCase()
+        .includes(teamSearchTerm.toLowerCase());
+      const matchesCategory =
+        teamCategoryFilter === "" || team.category === Number(teamCategoryFilter);
+      return matchesSearch && matchesCategory;
+    });
+  }, [teams, teamSearchTerm, teamCategoryFilter]);
+
+  const paginatedTeams = useMemo(() => {
+    const startIndex = (teamsPage - 1) * itemsPerPage;
+    return filteredTeams.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredTeams, teamsPage, itemsPerPage]);
+
+  const filteredUsers = useMemo(() => {
+    return users
+      .filter((user) => {
+        if (!userSearchTerm) return true;
+        const searchLower = userSearchTerm.toLowerCase();
+        return (
+          user.email.toLowerCase().includes(searchLower) ||
+          user.username.toLowerCase().includes(searchLower)
+        );
+      })
+      .filter((user) => !onlyAdmins || user.is_admin);
+  }, [users, userSearchTerm, onlyAdmins]);
+
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (usersPage - 1) * itemsPerPage;
+    return filteredUsers.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredUsers, usersPage, itemsPerPage]);
+
+  const filteredPlanillas = useMemo(() => {
+    return planillas
+      .filter((planilla) => {
+        if (!planillaSearchTerm) return true;
+        return planilla.team?.nombre
+          .toLowerCase()
+          .includes(planillaSearchTerm.toLowerCase());
+      })
+      .filter((planilla) => {
+        return (
+          planillaCategoryFilter === "" ||
+          planilla.team?.category === Number(planillaCategoryFilter)
+        );
+      })
+      .filter((planilla) => {
+        return (
+          planillaStatusFilter === "" || planilla.status === planillaStatusFilter
+        );
+      });
+  }, [planillas, planillaSearchTerm, planillaCategoryFilter, planillaStatusFilter]);
+
+  const paginatedPlanillas = useMemo(() => {
+    const startIndex = (planillasPage - 1) * itemsPerPage;
+    return filteredPlanillas.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredPlanillas, planillasPage, itemsPerPage]);
+
   useEffect(() => {
     if (activeTab === "equipos") {
       refetchTeams();
+      setTeamsPage(1);
     } else if (activeTab === "planillas") {
       refetchPlanillas();
+      setPlanillasPage(1);
     } else if (activeTab === "usuarios") {
       refetchProfiles();
+      setUsersPage(1);
     }
   }, [activeTab]);
 
@@ -705,39 +773,37 @@ export const AdminPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {teams
-                  .filter((team) => {
-                    const matchesSearch = team.nombre
-                      .toLowerCase()
-                      .includes(teamSearchTerm.toLowerCase());
-                    const matchesCategory =
-                      teamCategoryFilter === "" ||
-                      team.category === Number(teamCategoryFilter);
-                    return matchesSearch && matchesCategory;
-                  })
-                  .map((team) => (
-                    <TableRow key={team.id}>
-                      <TableCell>{team.nombre}</TableCell>
-                      <TableCell>{team.shortname}</TableCell>
-                      <TableCell>Categoría {team.category}</TableCell>
-                      <TableCell>
-                        {new Date(team.created_at).toLocaleDateString("es-ES")}
-                      </TableCell>
-                      <TableCell>
-                        <div className="action-buttons">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleEditTeam(team.id)}
-                          >
-                            <Pencil size={16} />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                {paginatedTeams.map((team) => (
+                  <TableRow key={team.id}>
+                    <TableCell>{team.nombre}</TableCell>
+                    <TableCell>{team.shortname}</TableCell>
+                    <TableCell>Categoría {team.category}</TableCell>
+                    <TableCell>
+                      {new Date(team.created_at).toLocaleDateString("es-ES")}
+                    </TableCell>
+                    <TableCell>
+                      <div className="action-buttons">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEditTeam(team.id)}
+                        >
+                          <Pencil size={16} />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
+            <Pagination
+              description="equipos"
+              currentPage={teamsPage}
+              totalPages={Math.ceil(filteredTeams.length / itemsPerPage)}
+              onPageChange={setTeamsPage}
+              itemsPerPage={itemsPerPage}
+              totalItems={filteredTeams.length}
+            />
           </div>
         )}
 
@@ -1007,27 +1073,7 @@ export const AdminPage = () => {
                     <Checkbox
                       checked={
                         selectedPlanillaIds.length > 0 &&
-                        selectedPlanillaIds.length ===
-                          planillas
-                            .filter((planilla) => {
-                              if (!planillaSearchTerm) return true;
-                              return planilla.team?.nombre
-                                .toLowerCase()
-                                .includes(planillaSearchTerm.toLowerCase());
-                            })
-                            .filter((planilla) => {
-                              return (
-                                planillaCategoryFilter === "" ||
-                                planilla.team?.category ===
-                                  Number(planillaCategoryFilter)
-                              );
-                            })
-                            .filter((planilla) => {
-                              return (
-                                planillaStatusFilter === "" ||
-                                planilla.status === planillaStatusFilter
-                              );
-                            }).length
+                        selectedPlanillaIds.length === filteredPlanillas.length
                       }
                       onChange={toggleAllPlanillas}
                     />
@@ -1040,129 +1086,118 @@ export const AdminPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {planillas
-                  .filter((planilla) => {
-                    if (!planillaSearchTerm) return true;
-                    return planilla.team?.nombre
-                      .toLowerCase()
-                      .includes(planillaSearchTerm.toLowerCase());
-                  })
-                  .filter((planilla) => {
-                    return (
-                      planillaCategoryFilter === "" ||
-                      planilla.team?.category === Number(planillaCategoryFilter)
-                    );
-                  })
-                  .filter((planilla) => {
-                    return (
-                      planillaStatusFilter === "" ||
-                      planilla.status === planillaStatusFilter
-                    );
-                  })
-                  .map((planilla) => (
-                    <TableRow
-                      key={planilla.id}
-                      className={
-                        planilla.status === "Eliminada"
-                          ? "deleted-planilla-row"
-                          : ""
-                      }
-                    >
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedPlanillaIds.includes(planilla.id)}
-                          onChange={() => togglePlanillaSelection(planilla.id)}
-                        />
-                      </TableCell>
-                      <TableCell>{planilla.team?.nombre}</TableCell>
-                      <TableCell>{planilla.team?.category}</TableCell>
-                      <TableCell>
-                        <StatusBadge status={planilla.status} />
-                      </TableCell>
-                      <TableCell>
-                        {new Date(planilla.created_at).toLocaleDateString(
-                          "es-ES"
+                {paginatedPlanillas.map((planilla) => (
+                  <TableRow
+                    key={planilla.id}
+                    className={
+                      planilla.status === "Eliminada"
+                        ? "deleted-planilla-row"
+                        : ""
+                    }
+                  >
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedPlanillaIds.includes(planilla.id)}
+                        onChange={() => togglePlanillaSelection(planilla.id)}
+                      />
+                    </TableCell>
+                    <TableCell>{planilla.team?.nombre}</TableCell>
+                    <TableCell>{planilla.team?.category}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={planilla.status} />
+                    </TableCell>
+                    <TableCell>
+                      {new Date(planilla.created_at).toLocaleDateString(
+                        "es-ES"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="action-buttons">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            navigate(`/planillas/${planilla.id}`)
+                          }
+                        >
+                          <Edit2 size={16} />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeletePlanilla(planilla.id)}
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                        {planilla.status === "Pendiente de aprobación" && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                handleChangeStatus(planilla.id, "Aprobada")
+                              }
+                            >
+                              <CheckCircle size={16} />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                handleChangeStatus(
+                                  planilla.id,
+                                  "Pendiente de envío"
+                                )
+                              }
+                            >
+                              <XCircle size={16} />
+                            </Button>
+                          </>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="action-buttons">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              navigate(`/planillas/${planilla.id}`)
-                            }
-                          >
-                            <Edit2 size={16} />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeletePlanilla(planilla.id)}
-                          >
-                            <Trash2 size={16} />
-                          </Button>
-                          {planilla.status === "Pendiente de aprobación" && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() =>
-                                  handleChangeStatus(planilla.id, "Aprobada")
-                                }
-                              >
-                                <CheckCircle size={16} />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() =>
-                                  handleChangeStatus(
-                                    planilla.id,
-                                    "Pendiente de envío"
-                                  )
-                                }
-                              >
-                                <XCircle size={16} />
-                              </Button>
-                            </>
-                          )}
-                          {planilla.status === "Aprobada" && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() =>
-                                  handleChangeStatus(
-                                    planilla.id,
-                                    "Pendiente de envío"
-                                  )
-                                }
-                              >
-                                <XCircle size={16} />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setPdfPlanillaId(planilla.id)}
-                                title="Descargar como PDF"
-                              >
-                                📄 PDF
-                              </Button>
-                            </>
-                          )}
-                          {pdfPlanillaId && (
-                            <PdfDownloader
-                              planillaId={pdfPlanillaId}
-                              onClose={() => setPdfPlanillaId(null)}
-                            />
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        {planilla.status === "Aprobada" && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                handleChangeStatus(
+                                  planilla.id,
+                                  "Pendiente de envío"
+                                )
+                              }
+                            >
+                              <XCircle size={16} />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setPdfPlanillaId(planilla.id)}
+                              title="Descargar como PDF"
+                            >
+                              📄 PDF
+                            </Button>
+                          </>
+                        )}
+                        {pdfPlanillaId && (
+                          <PdfDownloader
+                            planillaId={pdfPlanillaId}
+                            onClose={() => setPdfPlanillaId(null)}
+                          />
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
+            <Pagination
+              description="planillas"
+              currentPage={planillasPage}
+              totalPages={Math.ceil(filteredPlanillas.length / itemsPerPage)}
+              onPageChange={setPlanillasPage}
+              itemsPerPage={itemsPerPage}
+              totalItems={filteredPlanillas.length}
+            />
           </div>
         )}
 
@@ -1332,22 +1367,7 @@ export const AdminPage = () => {
                     <Checkbox
                       checked={
                         selectedUserIds.length > 0 &&
-                        selectedUserIds.length ===
-                          users
-                            .filter((user) => {
-                              if (!userSearchTerm) return true;
-                              const searchLower = userSearchTerm.toLowerCase();
-                              return (
-                                user.email
-                                  .toLowerCase()
-                                  .includes(searchLower) ||
-                                user.username
-                                  .toLowerCase()
-                                  .includes(searchLower)
-                              );
-                            })
-                            .filter((user) => !onlyAdmins || user.is_admin)
-                            .length
+                        selectedUserIds.length === filteredUsers.length
                       }
                       onChange={toggleAllUsers}
                     />
@@ -1360,54 +1380,50 @@ export const AdminPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users
-                  .filter((user) => {
-                    if (!userSearchTerm) return true;
-                    const searchLower = userSearchTerm.toLowerCase();
-                    return (
-                      user.email.toLowerCase().includes(searchLower) ||
-                      user.username.toLowerCase().includes(searchLower)
-                    );
-                  })
-                  .filter((user) => {
-                    return !onlyAdmins || user.is_admin;
-                  })
-                  .map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedUserIds.includes(user.id)}
-                          onChange={() => toggleUserSelection(user.id)}
-                        />
-                      </TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.username}</TableCell>
-                      <TableCell>{user.is_admin ? "Sí" : "No"}</TableCell>
-                      <TableCell>
-                        {new Date(user.created_at).toLocaleDateString("es-ES")}
-                      </TableCell>
-                      <TableCell>
-                        <div className="action-buttons">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleEditUser(user.id)}
-                          >
-                            <Pencil size={16} />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteUser(user.id)}
-                          >
-                            <Trash2 size={16} />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                {paginatedUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedUserIds.includes(user.id)}
+                        onChange={() => toggleUserSelection(user.id)}
+                      />
+                    </TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>{user.username}</TableCell>
+                    <TableCell>{user.is_admin ? "Sí" : "No"}</TableCell>
+                    <TableCell>
+                      {new Date(user.created_at).toLocaleDateString("es-ES")}
+                    </TableCell>
+                    <TableCell>
+                      <div className="action-buttons">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEditUser(user.id)}
+                        >
+                          <Pencil size={16} />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteUser(user.id)}
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
+            <Pagination
+              description="usuarios"
+              currentPage={usersPage}
+              totalPages={Math.ceil(filteredUsers.length / itemsPerPage)}
+              onPageChange={setUsersPage}
+              itemsPerPage={itemsPerPage}
+              totalItems={filteredUsers.length}
+            />
           </div>
         )}
       </div>
