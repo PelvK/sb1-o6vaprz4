@@ -287,14 +287,15 @@ function handleBulkCreate($conn, $data, $userId) {
                 $newUserId = bin2hex(random_bytes(16));
 
                 $stmt = $conn->prepare("
-                    INSERT INTO profiles (id, email, username, password, is_admin, created_at)
-                    VALUES (:id, :email, :username, :password, 0, NOW())
+                    INSERT INTO profiles (id, email, username, password, password_plain, is_admin, created_at)
+                    VALUES (:id, :email, :username, :password, :password_plain, 0, NOW())
                 ");
                 $stmt->execute([
                     'id' => $newUserId,
                     'email' => $planilla['email'],
                     'username' => $planilla['username'],
-                    'password' => $hashedPassword
+                    'password' => $hashedPassword,
+                  	'password_plain' => $planilla['password']
                 ]);
 
                 $stmt = $conn->prepare("

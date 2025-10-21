@@ -47,8 +47,8 @@ function handlePost($conn) {
 }
 
 function handleLogin($conn, $data) {
-    $email = "'" . $data['email'] . "'" ?? '';
-    $password = "'" . $data['password'] . "'" ?? '';
+    $email = $data['email'] ?? '';
+    $password = $data['password'] ?? '';
 
     if (empty($email) || empty($password)) {
         sendError("Email and password are required", 400);
@@ -62,7 +62,7 @@ function handleLogin($conn, $data) {
         ");
         $stmt->execute(['email' => $email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
+              
         if (!$user) {
             sendError("Invalid credentials", 401);
         }
@@ -78,14 +78,16 @@ function handleLogin($conn, $data) {
             INSERT INTO sessions (id, user_id, session_token, expires_at, created_at)
             VALUES (:id, :user_id, :session_token, :expires_at, NOW())
             ON DUPLICATE KEY UPDATE
-                session_token = :session_token,
-                expires_at = :expires_at
+                session_token = :session_token2,
+                expires_at = :expires_at2
         ");
         $stmt->execute([
             'id' => bin2hex(random_bytes(16)),
             'user_id' => $user['id'],
             'session_token' => $sessionId,
-            'expires_at' => $expiresAt
+            'expires_at' => $expiresAt,
+            'session_token2' => $sessionId,
+            'expires_at2' => $expiresAt
         ]);
 
         unset($user['password']);
